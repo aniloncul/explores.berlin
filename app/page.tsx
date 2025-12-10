@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { locations } from "@/data/locations";
+import { useEffect, useState, useMemo } from "react";
+import { supabase } from "@/lib/supabase";
+import { Location } from "@/types";
 import { useMapStore } from "@/store/useMapStore";
 import ListingCard from "@/components/ListingCard";
 import MapComponent from "@/components/Map";
@@ -14,12 +15,42 @@ export default function Page() {
         activeCategories, toggleCategory
     } = useMapStore();
 
+    const [locations, setLocations] = useState<Location[]>([]);
+
+    useEffect(() => {
+        async function fetchLocations() {
+            const { data, error } = await supabase.from('locations').select('*');
+            console.log("Supabase Fetch Debug:", { data: data, error: error, count: data?.length });
+
+            if (error) {
+                console.error('Error fetching locations:', error);
+                return;
+            }
+            if (data) {
+                const mapped: Location[] = data.map((d: any) => ({
+                    id: d.id,
+                    title: d.title,
+                    category: d.category, // Assuming array in DB
+                    description: d.description,
+                    address: d.address,
+                    coordinates: { lat: d.lat, lng: d.lng },
+                    startDate: d.start_date,
+                    endDate: d.end_date,
+                    images: d.images,
+                    highlight: d.highlight
+                }));
+                setLocations(mapped);
+            }
+        }
+        fetchLocations();
+    }, []);
+
     // Extract unique categories
     const allCategories = useMemo(() => {
         const cats = new Set<string>();
         locations.forEach(loc => loc.category.forEach(c => cats.add(c)));
         return Array.from(cats);
-    }, []);
+    }, [locations]);
 
     // Filter Logic
     const filteredLocations = useMemo(() => {
@@ -50,7 +81,7 @@ export default function Page() {
 
             return true;
         });
-    }, [dateFilter, activeCategories]);
+    }, [dateFilter, activeCategories, locations]);
 
     return (
         <main className="flex h-screen w-full flex-col bg-white dark:bg-black overflow-hidden">
@@ -130,3 +161,5 @@ export default function Page() {
         </main>
     );
 }
+
+

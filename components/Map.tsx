@@ -2,10 +2,10 @@
 
 import { APIProvider, Map, AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
 import { useMapStore } from "@/store/useMapStore";
-import { locations as allLocations } from "@/data/locations";
+import { Location } from "@/types";
 
 interface MapProps {
-    filteredLocations: typeof allLocations;
+    filteredLocations: Location[];
 }
 
 export default function MapComponent({ filteredLocations }: MapProps) {
@@ -47,7 +47,7 @@ export default function MapComponent({ filteredLocations }: MapProps) {
                                     />
                                 </div>
                             </AdvancedMarker>
-                        )
+                        );
                     })}
                 </Map>
             </APIProvider>

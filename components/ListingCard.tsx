@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { locations } from "@/data/locations";
+import { Location } from "@/types";
 import { useMapStore } from "@/store/useMapStore";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 interface ListingCardProps {
-    location: typeof locations[0];
+    location: Location;
 }
 
 export default function ListingCard({ location }: ListingCardProps) {
