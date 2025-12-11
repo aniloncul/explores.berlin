@@ -41,7 +41,7 @@ export default function ListingCard({ location }: ListingCardProps) {
         );
     };
 
-    const isRecommended = location.mainCategory === 'Recommended' || location.tags?.includes('Recommended');
+    const isRecommended = location.highlight;
 
     return (
         <div
