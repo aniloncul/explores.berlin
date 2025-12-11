@@ -26,6 +26,17 @@ export default function MapComponent({ filteredLocations }: MapProps) {
                 >
                     {filteredLocations.map((location) => {
                         const isHovered = hoveredId === location.id;
+
+                        // Determine Color
+                        let colorClass = "bg-gray-500";
+                        const t = ((location.mainCategory || '') + ' ' + (location.tags || []).join(' ')).toLowerCase();
+
+                        if (t.includes('exhibition') || t.includes('ausstellung')) colorClass = "bg-green-500";
+                        else if (t.includes('dining') || t.includes('essen')) colorClass = "bg-orange-500";
+                        else if (t.includes('+18')) colorClass = "bg-red-500";
+                        else if (t.includes('angebot') || t.includes('recommended')) colorClass = "bg-purple-500";
+                        else if (t.includes('event')) colorClass = "bg-blue-500";
+
                         return (
                             <AdvancedMarker
                                 key={location.id}
@@ -35,17 +46,9 @@ export default function MapComponent({ filteredLocations }: MapProps) {
                                 onMouseLeave={() => setHoveredId(null)}
                                 onClick={() => setHoveredId(location.id)}
                             >
-                                <div style={{
-                                    transform: isHovered ? 'scale(1.5)' : 'scale(1)',
-                                    transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                                    cursor: 'pointer'
-                                }}>
-                                    <Pin
-                                        background={isHovered ? "#222222" : "#FF5A5F"}
-                                        borderColor={'#ffffff'}
-                                        glyphColor={'#ffffff'}
-                                    />
-                                </div>
+                                <div
+                                    className={`w-3 h-3 rounded-full border border-white shadow-sm transition-all duration-300 ${colorClass} ${isHovered ? 'w-5 h-5 ring-2 ring-black z-50' : ''}`}
+                                />
                             </AdvancedMarker>
                         );
                     })}
