@@ -18,9 +18,28 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
+  background: white;
+  /* Simplified background to avoid weird gradients if prefered */
+}
+
+/* Animations */
+@keyframes pixel-slide {
+  0% {
+    transform: translateX(100vw);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-pixel-slide {
+  animation: pixel-slide 30s linear infinite;
+  /* Slower for readability */
+}
+
+.font-pixel {
+  font-family: var(--font-pixel), monospace;
 }
 
 @layer utilities {

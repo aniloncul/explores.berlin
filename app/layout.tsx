@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
+const pressStart2P = Press_Start_2P({
+    weight: "400",
+    subsets: ["latin"],
+    variable: "--font-pixel"
+});
 
 export const metadata: Metadata = {
     title: "Explores.Berlin",
-    description: "Curated map of events in Berlin",
+    description: "Curated map of Berlin's best spots",
 };
 
 export default function RootLayout({
@@ -16,7 +21,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-            <body className={inter.className} suppressHydrationWarning>{children}</body>
+            <body className={`${inter.className} ${pressStart2P.variable}`} suppressHydrationWarning>{children}</body>
         </html>
     );
 }
