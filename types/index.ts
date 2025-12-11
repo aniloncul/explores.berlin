@@ -12,4 +12,6 @@ export interface Location {
     endDate: string;   // ISO date string
     images: string[];
     highlight: boolean;
+    mainCategory?: string;
+    tags?: string[];
 }

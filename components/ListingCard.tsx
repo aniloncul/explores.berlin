@@ -97,9 +97,14 @@ export default function ListingCard({ location }: ListingCardProps) {
                     {location.description}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-1">
-                    {location.category.map(cat => (
-                        <span key={cat} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-gray-300">
-                            {cat}
+                    {location.mainCategory && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 font-medium">
+                            {location.mainCategory}
+                        </span>
+                    )}
+                    {(location.tags || []).map(tag => (
+                        <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-gray-300">
+                            {tag}
                         </span>
                     ))}
                 </div>

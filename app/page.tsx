@@ -27,18 +27,22 @@ export default function Page() {
                 return;
             }
             if (data) {
-                const mapped: Location[] = data.map((d: any) => ({
-                    id: d.id,
-                    title: d.title,
-                    category: d.category, // Assuming array in DB
-                    description: d.description,
-                    address: d.address,
-                    coordinates: { lat: d.lat, lng: d.lng },
-                    startDate: d.start_date,
-                    endDate: d.end_date,
-                    images: d.images,
-                    highlight: d.highlight
-                }));
+                const mapped: Location[] = data.map((loc: any) => {
+                    return {
+                        id: loc.id,
+                        title: loc.title,
+                        category: loc.category || [],
+                        description: loc.description,
+                        address: loc.address,
+                        coordinates: { lat: loc.lat, lng: loc.lng },
+                        startDate: loc.start_date,
+                        endDate: loc.end_date,
+                        images: loc.images || [],
+                        highlight: loc.highlight,
+                        mainCategory: loc.main_category,
+                        tags: loc.tags || []
+                    } as Location;
+                });
                 setLocations(mapped);
             }
         }
@@ -48,7 +52,9 @@ export default function Page() {
     // Extract unique categories
     const allCategories = useMemo(() => {
         const cats = new Set<string>();
-        locations.forEach(loc => loc.category.forEach(c => cats.add(c)));
+        locations.forEach(loc => {
+            if (loc.mainCategory) cats.add(loc.mainCategory);
+        });
         return Array.from(cats);
     }, [locations]);
 
@@ -67,16 +73,12 @@ export default function Page() {
                     end.setHours(0, 0, 0, 0);
 
                     if (d < start || d > end) return false;
-                } else {
-                    // If startDate is null (permanent venues), keep it.
-                    // (Assuming data source allows null, though the example data has dates for all. Logic handles it.)
                 }
             }
 
             // Category Filter
             if (activeCategories.length > 0) {
-                const hasCategory = loc.category.some(c => activeCategories.includes(c));
-                if (!hasCategory) return false;
+                if (!loc.mainCategory || !activeCategories.includes(loc.mainCategory)) return false;
             }
 
             return true;
