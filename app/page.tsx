@@ -6,7 +6,7 @@ import { Location } from "@/types";
 import { useMapStore } from "@/store/useMapStore";
 import ListingCard from "@/components/ListingCard";
 import MapComponent from "@/components/Map";
-import { Calendar } from "lucide-react";
+import { Calendar, Search } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import PixelTicker from "@/components/PixelTicker";
 
@@ -19,6 +19,8 @@ export default function Page() {
     } = useMapStore();
 
     const [locations, setLocations] = useState<Location[]>([]);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         async function fetchLocations() {
@@ -48,6 +50,7 @@ export default function Page() {
                 });
                 setLocations(mapped);
             }
+            setIsLoading(false);
         }
         fetchLocations();
     }, []);
@@ -56,7 +59,7 @@ export default function Page() {
     const allCategories = useMemo(() => {
         const cats = new Set<string>();
         locations.forEach(loc => {
-            if (loc.mainCategory) cats.add(loc.mainCategory);
+            if (loc.mainCategory && loc.mainCategory !== 'Recommended') cats.add(loc.mainCategory);
         });
         return Array.from(cats);
     }, [locations]);
@@ -84,9 +87,17 @@ export default function Page() {
                 if (!loc.mainCategory || !activeCategories.includes(loc.mainCategory)) return false;
             }
 
+            // Search Filter
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                const title = (loc.title || '').toLowerCase();
+                const desc = (loc.description || '').toLowerCase();
+                if (!title.includes(q) && !desc.includes(q)) return false;
+            }
+
             return true;
         });
-    }, [dateFilter, activeCategories, locations]);
+    }, [dateFilter, activeCategories, locations, searchQuery]);
 
     return (
         <main className="flex h-screen w-full flex-col bg-white dark:bg-black overflow-hidden">
@@ -112,13 +123,27 @@ export default function Page() {
                 <div className="w-full lg:w-3/5 xl:w-[55%] h-full overflow-y-auto no-scrollbar p-4 sm:p-6 pb-32 scroll-smooth">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6">
                         {/* Date Picker */}
-                        <div className="relative flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 hover:border-gray-300 dark:border-zinc-800 dark:bg-zinc-900 transition-colors w-full sm:w-auto">
-                            <Calendar className="h-4 w-4 text-gray-500" />
+                        {/* Date Picker - Techno Style */}
+                        <div className="relative flex items-center gap-2 border-2 border-black bg-white px-4 py-2 hover:bg-black hover:text-white group dark:border-white dark:bg-black dark:text-white dark:hover:bg-white dark:hover:text-black transition-colors w-full sm:w-auto shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none">
+                            <Calendar className="h-4 w-4 group-hover:text-white dark:group-hover:text-black transition-colors" />
                             <input
                                 type="date"
-                                className="bg-transparent text-sm font-medium outline-none text-gray-900 dark:text-gray-100 placeholder-gray-500 w-full"
+                                className="bg-transparent text-sm font-bold uppercase outline-none text-inherit w-full cursor-pointer placeholder-inherit font-mono"
                                 value={dateFilter ? new Date(dateFilter.getTime() - dateFilter.getTimezoneOffset() * 60000).toISOString().split('T')[0] : ''}
                                 onChange={(e) => setDateFilter(e.target.valueAsDate)}
+                            />
+                        </div>
+
+                        {/* Search Bar */}
+                        {/* Search Bar - Techno Style */}
+                        <div className="relative flex items-center gap-2 border-2 border-black bg-white px-4 py-2 w-full sm:w-auto flex-1 max-w-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-black dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
+                            <Search className="h-4 w-4 text-black dark:text-white" />
+                            <input
+                                type="text"
+                                placeholder="SEARCH EVENTS..."
+                                className="bg-transparent text-sm font-bold outline-none text-black dark:text-white placeholder-gray-500 w-full uppercase font-mono"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
 
@@ -129,10 +154,10 @@ export default function Page() {
                                     key={cat}
                                     onClick={() => toggleCategory(cat)}
                                     className={twMerge(
-                                        "whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-all border",
+                                        "whitespace-nowrap px-4 py-2 text-xs font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-mono",
                                         activeCategories.includes(cat)
                                             ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
-                                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                                            : "bg-white text-black border-black hover:bg-black hover:text-white dark:bg-black dark:text-white dark:border-white dark:hover:bg-white dark:hover:text-black"
                                     )}
                                 >
                                     {cat === 'Recommended' ? 'Angebot' : cat.replace(/[\[\]'"]/g, '')}
@@ -142,14 +167,26 @@ export default function Page() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredLocations.map(loc => (
-                            <ListingCard key={loc.id} location={loc} />
-                        ))}
-                        {filteredLocations.length === 0 && (
-                            <div className="col-span-full py-12 flex flex-col items-center justify-center text-center text-gray-500 dark:text-zinc-500">
-                                <p>No events found for this date.</p>
-                                <button onClick={() => setDateFilter(null)} className="mt-2 text-rose-500 underline text-sm">Clear filter</button>
-                            </div>
+                        {isLoading ? (
+                            Array.from({ length: 9 }).map((_, i) => (
+                                <div key={i} className="flex flex-col gap-3">
+                                    <div className="w-full aspect-[4/3] bg-gray-200 dark:bg-zinc-800 rounded-xl animate-pulse" />
+                                    <div className="h-4 w-3/4 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse" />
+                                    <div className="h-4 w-1/2 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse" />
+                                </div>
+                            ))
+                        ) : (
+                            <>
+                                {filteredLocations.map(loc => (
+                                    <ListingCard key={loc.id} location={loc} />
+                                ))}
+                                {filteredLocations.length === 0 && (
+                                    <div className="col-span-full py-12 flex flex-col items-center justify-center text-center text-gray-500 dark:text-zinc-500">
+                                        <p>No events found for this date.</p>
+                                        <button onClick={() => setDateFilter(null)} className="mt-2 text-rose-500 underline text-sm">Clear filter</button>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
