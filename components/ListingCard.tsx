@@ -41,15 +41,23 @@ export default function ListingCard({ location }: ListingCardProps) {
         );
     };
 
+    const isRecommended = location.mainCategory === 'Recommended' || location.tags?.includes('Recommended');
+
     return (
         <div
             className={twMerge(
-                "group relative flex flex-col gap-3 rounded-xl p-3 transition-all duration-300",
-                isHovered ? "bg-gray-100 dark:bg-zinc-800" : "hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+                "group relative flex flex-col gap-3 rounded-none p-3 transition-all duration-300 border-2",
+                isRecommended ? "border-yellow-400 bg-yellow-400/5 dark:bg-yellow-400/5" : "border-transparent hover:border-black dark:hover:border-white",
+                isHovered ? (isRecommended ? "bg-yellow-400/10" : "bg-gray-100 dark:bg-zinc-800") : "hover:bg-gray-50 dark:hover:bg-zinc-800/50"
             )}
             onMouseEnter={() => setHoveredId(location.id)}
             onMouseLeave={() => setHoveredId(null)}
         >
+            {isRecommended && (
+                <div className="absolute -top-3 -right-1 bg-yellow-400 text-black px-2 py-1 text-[10px] font-bold uppercase border border-black shadow-[2px_2px_0px_0px_black] z-20">
+                    Recommended
+                </div>
+            )}
             {/* Image Carousel */}
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-gray-200 dark:bg-zinc-700">
                 <img
@@ -108,7 +116,7 @@ export default function ListingCard({ location }: ListingCardProps) {
                     {location.description}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-1">
-                    {location.mainCategory && (
+                    {location.mainCategory && location.mainCategory !== 'Recommended' && (
                         <span className={twMerge("text-xs px-2 py-0.5 rounded-full font-medium", getBadgeColor(location.mainCategory))}>
                             {location.mainCategory}
                         </span>
