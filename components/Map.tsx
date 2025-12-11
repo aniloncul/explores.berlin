@@ -46,9 +46,17 @@ export default function MapComponent({ filteredLocations }: MapProps) {
                                 onMouseLeave={() => setHoveredId(null)}
                                 onClick={() => setHoveredId(location.id)}
                             >
-                                <div
-                                    className={`w-3 h-3 rounded-full border border-white shadow-sm transition-all duration-300 ${colorClass} ${isHovered ? 'w-5 h-5 ring-2 ring-black z-50' : ''}`}
-                                />
+                                <div className="relative flex flex-col items-center">
+                                    {isHovered && (
+                                        <div className="absolute bottom-full mb-2 w-max max-w-[200px] bg-white dark:bg-zinc-800 text-black dark:text-white text-xs font-semibold px-2 py-1 rounded shadow-lg z-[60] pointer-events-none text-center">
+                                            {location.title}
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white dark:border-t-zinc-800" />
+                                        </div>
+                                    )}
+                                    <div
+                                        className={`w-3 h-3 rounded-full border border-white shadow-sm transition-all duration-300 ${colorClass} ${isHovered ? 'w-5 h-5 ring-2 ring-black z-50' : ''}`}
+                                    />
+                                </div>
                             </AdvancedMarker>
                         );
                     })}
