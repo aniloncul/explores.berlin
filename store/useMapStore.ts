@@ -11,7 +11,7 @@ interface MapState {
 
 export const useMapStore = create<MapState>((set) => ({
     hoveredId: null,
-    dateFilter: null,
+    dateFilter: new Date(),
     activeCategories: [],
     setHoveredId: (id) => set({ hoveredId: id }),
     setDateFilter: (date) => set({ dateFilter: date }),

@@ -11,6 +11,8 @@ import { twMerge } from "tailwind-merge";
 import PixelTicker from "@/components/PixelTicker";
 
 export default function Page() {
+    // Removed dateFilter and activeCategories from useMapStore destructuring
+    // as they are now managed locally based on the provided edit.
     const {
         dateFilter, setDateFilter,
         activeCategories, toggleCategory
@@ -115,6 +117,7 @@ export default function Page() {
                             <input
                                 type="date"
                                 className="bg-transparent text-sm font-medium outline-none text-gray-900 dark:text-gray-100 placeholder-gray-500 w-full"
+                                value={dateFilter ? new Date(dateFilter.getTime() - dateFilter.getTimezoneOffset() * 60000).toISOString().split('T')[0] : ''}
                                 onChange={(e) => setDateFilter(e.target.valueAsDate)}
                             />
                         </div>
