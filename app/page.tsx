@@ -97,33 +97,9 @@ export default function Page() {
                 </div>
 
                 <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                    {/* Date Picker */}
-                    <div className="relative flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 hover:border-gray-300 dark:border-zinc-800 dark:bg-zinc-900 transition-colors">
-                        <Calendar className="h-4 w-4 text-gray-500" />
-                        <input
-                            type="date"
-                            className="bg-transparent text-sm font-medium outline-none text-gray-900 dark:text-gray-100 placeholder-gray-500"
-                            onChange={(e) => setDateFilter(e.target.valueAsDate)}
-                        />
-                    </div>
-
-                    {/* Categories */}
-                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                        {allCategories.map(cat => (
-                            <button
-                                key={cat}
-                                onClick={() => toggleCategory(cat)}
-                                className={twMerge(
-                                    "whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-all border",
-                                    activeCategories.includes(cat)
-                                        ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
-                                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                                )}
-                            >
-                                {cat}
-                            </button>
-                        ))}
-                    </div>
+                    <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+                        {filteredLocations.length} locations
+                    </span>
                 </div>
             </header>
 
@@ -131,10 +107,34 @@ export default function Page() {
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Left: Scrollable Grid */}
                 <div className="w-full lg:w-3/5 xl:w-[55%] h-full overflow-y-auto no-scrollbar p-4 sm:p-6 pb-32 scroll-smooth">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                            {filteredLocations.length} locations
-                        </h2>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6">
+                        {/* Date Picker */}
+                        <div className="relative flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 hover:border-gray-300 dark:border-zinc-800 dark:bg-zinc-900 transition-colors w-full sm:w-auto">
+                            <Calendar className="h-4 w-4 text-gray-500" />
+                            <input
+                                type="date"
+                                className="bg-transparent text-sm font-medium outline-none text-gray-900 dark:text-gray-100 placeholder-gray-500 w-full"
+                                onChange={(e) => setDateFilter(e.target.valueAsDate)}
+                            />
+                        </div>
+
+                        {/* Categories */}
+                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
+                            {allCategories.map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => toggleCategory(cat)}
+                                    className={twMerge(
+                                        "whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-all border",
+                                        activeCategories.includes(cat)
+                                            ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
+                                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                                    )}
+                                >
+                                    {cat === 'Recommended' ? 'Angebot' : cat.replace(/[\[\]'"]/g, '')}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
