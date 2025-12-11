@@ -16,7 +16,7 @@ const getBadgeColor = (text: string) => {
     if (t.includes('dining') || t.includes('essen')) return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300";
     if (t.includes('+18')) return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300";
     if (t.includes('angebot') || t.includes('recommended')) return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300";
-    if (t.includes('event')) return "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300";
+    if (t.includes('event')) return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300";
 
     return "bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300";
 };
