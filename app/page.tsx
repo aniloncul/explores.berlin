@@ -21,10 +21,10 @@ export default function Page() {
     const [locations, setLocations] = useState<Location[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [isLoading, setIsLoading] = useState(true);
-    const [visibleLocationIds, setVisibleLocationIds] = useState<Set<string> | null>(null);
+    const [visibleLocationIds, setVisibleLocationIds] = useState<string[] | null>(null);
 
     const handleVisibleIdsChange = useCallback((ids: string[]) => {
-        setVisibleLocationIds(new Set(ids));
+        setVisibleLocationIds(ids);
     }, []);
 
     useEffect(() => {
@@ -110,7 +110,7 @@ export default function Page() {
 
     const displayLocations = useMemo(() => {
         if (!visibleLocationIds) return filteredLocations;
-        return filteredLocations.filter(loc => visibleLocationIds.has(loc.id));
+        return filteredLocations.filter(loc => visibleLocationIds.includes(loc.id));
     }, [filteredLocations, visibleLocationIds]);
 
     return (
