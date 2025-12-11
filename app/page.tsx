@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Location } from "@/types";
 import { useMapStore } from "@/store/useMapStore";
@@ -21,6 +21,11 @@ export default function Page() {
     const [locations, setLocations] = useState<Location[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+    const [visibleLocationIds, setVisibleLocationIds] = useState<Set<string> | null>(null);
+
+    const handleVisibleIdsChange = useCallback((ids: string[]) => {
+        setVisibleLocationIds(new Set(ids));
+    }, []);
 
     useEffect(() => {
         async function fetchLocations() {
@@ -59,7 +64,11 @@ export default function Page() {
     const allCategories = useMemo(() => {
         const cats = new Set<string>();
         locations.forEach(loc => {
-            if (loc.mainCategory && loc.mainCategory !== 'Recommended') cats.add(loc.mainCategory);
+            if (loc.mainCategory && loc.mainCategory !== 'Recommended') {
+                const c = loc.mainCategory.trim();
+                // Ensure specific casing if needed, or just add the trimmed version
+                cats.add(c);
+            }
         });
         return Array.from(cats);
     }, [locations]);
@@ -98,6 +107,11 @@ export default function Page() {
             return true;
         });
     }, [dateFilter, activeCategories, locations, searchQuery]);
+
+    const displayLocations = useMemo(() => {
+        if (!visibleLocationIds) return filteredLocations;
+        return filteredLocations.filter(loc => visibleLocationIds.has(loc.id));
+    }, [filteredLocations, visibleLocationIds]);
 
     return (
         <main className="flex h-screen w-full flex-col bg-white dark:bg-black overflow-hidden">
@@ -177,10 +191,10 @@ export default function Page() {
                             ))
                         ) : (
                             <>
-                                {filteredLocations.map(loc => (
+                                {displayLocations.map(loc => (
                                     <ListingCard key={loc.id} location={loc} />
                                 ))}
-                                {filteredLocations.length === 0 && (
+                                {displayLocations.length === 0 && (
                                     <div className="col-span-full py-12 flex flex-col items-center justify-center text-center text-gray-500 dark:text-zinc-500">
                                         <p>No events found for this date.</p>
                                         <button onClick={() => setDateFilter(null)} className="mt-2 text-rose-500 underline text-sm">Clear filter</button>
@@ -193,8 +207,8 @@ export default function Page() {
 
                 {/* Right: Sticky Map (Hidden on mobile, shown on lg) */}
                 <div className="hidden lg:block lg:w-2/5 xl:w-[45%] h-full">
-                    <div className="h-full w-full p-4 pl-0">
-                        <MapComponent filteredLocations={filteredLocations} />
+                    <div className="h-full w-full p-6">
+                        <MapComponent filteredLocations={filteredLocations} onVisibleIdsChange={handleVisibleIdsChange} />
                     </div>
                 </div>
 

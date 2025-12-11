@@ -1,21 +1,70 @@
 "use client";
 
-import { APIProvider, Map, AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
+import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
 import { useMapStore } from "@/store/useMapStore";
 import { Location } from "@/types";
 import { Flag } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface MapProps {
     filteredLocations: Location[];
+    onVisibleIdsChange?: (ids: string[]) => void;
 }
 
-export default function MapComponent({ filteredLocations }: MapProps) {
+function MapUpdater({ locations, onVisibleIdsChange }: { locations: Location[], onVisibleIdsChange?: (ids: string[]) => void }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (!map || !onVisibleIdsChange) return;
+
+        const updateVisible = () => {
+            const bounds = map.getBounds();
+            if (!bounds) return;
+
+            const visibleIds = locations
+                .filter(loc => bounds.contains(loc.coordinates))
+                .map(loc => loc.id);
+
+            onVisibleIdsChange(visibleIds);
+        };
+
+        // Update on idle (end of pan/zoom) and when locations change
+        const listener = map.addListener('idle', updateVisible);
+        // Also run immediately in case bounds are already ready (or on location update)
+        updateVisible();
+
+        return () => {
+            google.maps.event.removeListener(listener);
+        };
+    }, [map, locations, onVisibleIdsChange]);
+
+    return null;
+}
+
+export default function MapComponent({ filteredLocations, onVisibleIdsChange }: MapProps) {
     const { hoveredId, setHoveredId } = useMapStore();
+    const [zoom, setZoom] = useState(12);
 
     const defaultCenter = { lat: 52.490, lng: 13.39 };
 
+    // Calculate base size based on zoom
+    const getBaseSizeClass = () => {
+        if (zoom >= 16) return "w-12 h-12";
+        if (zoom >= 14) return "w-8 h-8";
+        return "w-5 h-5";
+    };
+
+    const getHoverSizeClass = () => {
+        if (zoom >= 16) return "w-16 h-16";
+        if (zoom >= 14) return "w-12 h-12";
+        return "w-8 h-8";
+    };
+
+    const baseSize = getBaseSizeClass();
+    const hoverSize = getHoverSizeClass();
+
     return (
-        <div className="h-full w-full bg-zinc-900 rounded-xl overflow-hidden">
+        <div className="h-full w-full bg-zinc-900 rounded-none overflow-hidden border-2 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
             <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}>
                 <Map
                     defaultCenter={defaultCenter}
@@ -24,7 +73,9 @@ export default function MapComponent({ filteredLocations }: MapProps) {
                     className="h-full w-full"
                     gestureHandling={'greedy'}
                     disableDefaultUI={true}
+                    onZoomChanged={(ev) => setZoom(ev.detail.zoom)}
                 >
+                    <MapUpdater locations={filteredLocations} onVisibleIdsChange={onVisibleIdsChange} />
                     {filteredLocations.map((location) => {
                         const isHovered = hoveredId === location.id;
 
@@ -55,7 +106,7 @@ export default function MapComponent({ filteredLocations }: MapProps) {
                                         </div>
                                     )}
                                     <Flag
-                                        className={`w-5 h-5 transition-all duration-300 drop-shadow-sm ${colorClass} ${isHovered ? 'w-8 h-8 drop-shadow-md z-50' : ''}`}
+                                        className={`transition-all duration-300 drop-shadow-sm ${colorClass} ${isHovered ? `${hoverSize} drop-shadow-md z-50` : baseSize}`}
                                     />
                                 </div>
                             </AdvancedMarker>
