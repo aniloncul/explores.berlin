@@ -138,7 +138,7 @@ export default function Page() {
 
                 {/* Logo Layer (Top, Masking) */}
                 <div className="z-10 flex items-center gap-2 bg-white dark:bg-black px-6 h-full shadow-[10px_0_20px_rgba(255,255,255,1)] dark:shadow-[10px_0_20px_rgba(0,0,0,1)]">
-                    <div className="h-8 w-8 rounded-lg bg-rose-500" /> {/* Logo placeholder */}
+                    <img src="/nazli.jpg" alt="Logo" className="h-8 w-8 rounded-lg object-cover" />
                     <h1 className="text-xl font-bold bg-gradient-to-r from-rose-500 to-orange-500 bg-clip-text text-transparent">
                         Explores.Berlin
                     </h1>
