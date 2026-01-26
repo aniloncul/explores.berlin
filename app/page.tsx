@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+// import { supabase } from "@/lib/supabase"; // Temporarily disabled - using mock data
+import { mockLocations } from "@/data/mockLocations"; // Mock data import
 import { Location } from "@/types";
 import { useMapStore } from "@/store/useMapStore";
 import ListingCard from "@/components/ListingCard";
@@ -27,6 +28,18 @@ export default function Page() {
         setVisibleLocationIds(ids);
     }, []);
 
+    // Using mock data instead of Supabase (temporary solution)
+    useEffect(() => {
+        // Simulate loading delay for realistic UX
+        const timer = setTimeout(() => {
+            setLocations(mockLocations);
+            console.log("Mock Data Loaded:", { count: mockLocations.length });
+            setIsLoading(false);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, []);
+
+    /* Original Supabase fetch - uncomment to restore
     useEffect(() => {
         async function fetchLocations() {
             const { data, error } = await supabase.from('locations').select('*');
@@ -59,6 +72,7 @@ export default function Page() {
         }
         fetchLocations();
     }, []);
+    */
 
     // Extract unique categories
     const allCategories = useMemo(() => {

@@ -66,11 +66,7 @@ export default function ListingCard({ location }: ListingCardProps) {
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
 
-                {location.highlight && (
-                    <div className="absolute left-3 top-3 z-10 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-black shadow-sm backdrop-blur-md">
-                        Recommended
-                    </div>
-                )}
+                {/* Removed duplicate Recommended badge - using only yellow corner badge */}
 
                 {location.images.length > 1 && (
                     <>

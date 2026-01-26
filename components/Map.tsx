@@ -79,15 +79,16 @@ export default function MapComponent({ filteredLocations, onVisibleIdsChange }: 
                     {filteredLocations.map((location) => {
                         const isHovered = hoveredId === location.id;
 
-                        // Determine Color
-                        let colorClass = "text-gray-500 fill-gray-500";
+                        // Determine Color - Using brighter, more visible colors with outline style
+                        let strokeColor = "#6B7280"; // gray-500 default
                         const t = ((location.mainCategory || '') + ' ' + (location.tags || []).join(' ')).toLowerCase();
 
-                        if (t.includes('exhibition') || t.includes('ausstellung')) colorClass = "text-green-500 fill-green-500";
-                        else if (t.includes('dining') || t.includes('essen')) colorClass = "text-orange-500 fill-orange-500";
-                        else if (t.includes('+18')) colorClass = "text-red-500 fill-red-500";
-                        else if (t.includes('angebot') || t.includes('recommended')) colorClass = "text-purple-500 fill-purple-500";
-                        else if (t.includes('event')) colorClass = "text-blue-500 fill-blue-500";
+                        if (t.includes('nightlife') || t.includes('club')) strokeColor = "#EC4899"; // pink-500
+                        else if (t.includes('culture') || t.includes('exhibition') || t.includes('ausstellung')) strokeColor = "#22D3EE"; // cyan-400
+                        else if (t.includes('food') || t.includes('dining') || t.includes('essen')) strokeColor = "#F59E0B"; // amber-500
+                        else if (t.includes('+18')) strokeColor = "#EF4444"; // red-500
+                        else if (t.includes('shopping') || t.includes('market')) strokeColor = "#A3E635"; // lime-400
+                        else if (t.includes('event') || t.includes('concert')) strokeColor = "#D946EF"; // fuchsia-500
 
                         return (
                             <AdvancedMarker
@@ -106,7 +107,13 @@ export default function MapComponent({ filteredLocations, onVisibleIdsChange }: 
                                         </div>
                                     )}
                                     <Flag
-                                        className={`transition-all duration-300 drop-shadow-sm ${colorClass} ${isHovered ? `${hoverSize} drop-shadow-md z-50` : baseSize}`}
+                                        className={`transition-all duration-300 ${isHovered ? `${hoverSize} z-50` : baseSize}`}
+                                        style={{
+                                            stroke: strokeColor,
+                                            strokeWidth: isHovered ? 2.5 : 2,
+                                            fill: 'none',
+                                            filter: `drop-shadow(0 0 ${isHovered ? '6px' : '3px'} ${strokeColor})`
+                                        }}
                                     />
                                 </div>
                             </AdvancedMarker>
