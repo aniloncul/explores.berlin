@@ -30,7 +30,7 @@ export async function POST(req: Request) {
                 to: [{ email: email }],
                 templateId: 6, // Your Custom Design Template
                 params: {
-                    doubleoptin: confirmLink // We map our link to the variable used in your template
+                    link: confirmLink // Simplified parameter name
                 }
             })
         });
