@@ -16,8 +16,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
         }
 
-        // Send Double Opt-in Confirmation
-        const response = await fetch('https://api.brevo.com/v3/contacts/doubleOptinConfirmation', {
+        // Send Confirmation Email Manually (Bypassing DOI Validation)
+        const confirmLink = `https://explores-berlin.vercel.app/api/confirm?email=${encodeURIComponent(email)}`;
+
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
             headers: {
                 'accept': 'application/json',
@@ -25,19 +27,18 @@ export async function POST(req: Request) {
                 'content-type': 'application/json'
             },
             body: JSON.stringify({
-                email: email,
-                includeListIds: [2], // Target list ID after confirmation
-                templateId: 6, // Your Custom Design DOI Template ID
-                redirectionUrl: 'https://explores-berlin.vercel.app/subscribe?verified=true' // Redirect here after clicking email
+                to: [{ email: email }],
+                templateId: 6, // Your Custom Design Template
+                params: {
+                    doubleoptin: confirmLink // We map our link to the variable used in your template
+                }
             })
         });
 
         if (!response.ok) {
             const errorData = await response.json();
-            // If contact already exists/subscribed, Brevo might return 400.
-            // We can check error code but for DOI flow, usually we just show "Check email"
             console.error('Brevo API Error:', errorData);
-            return NextResponse.json({ error: 'Failed to initiate subscription' }, { status: response.status });
+            return NextResponse.json({ error: 'Failed to send confirmation email' }, { status: response.status });
         }
 
         return NextResponse.json({ message: 'Confirmation email sent' }, { status: 200 });
