@@ -18,7 +18,7 @@ export default function ImpressumPage() {
                         <h2 className="text-lg font-bold text-white">Contact Information</h2>
                         <div className="grid gap-1 text-sm">
                             <p className="font-bold text-white">Anıl Öncül</p>
-                            <p>Musterstraße 1 (Adresinizi Buraya Yazın)</p>
+                            <p>Musterstraße 1 </p>
                             <p>10000 Berlin</p>
                             <p>Germany</p>
                         </div>
@@ -27,7 +27,7 @@ export default function ImpressumPage() {
                     <div className="space-y-2">
                         <h2 className="text-lg font-bold text-white">Contact</h2>
                         <div className="grid gap-1 text-sm">
-                            <p>Email: aniloncul@gmail.com</p>
+                            <p>Email: nazli.uysl@gmail.com</p>
                             <p>Phone: +49 (0) 123 456789</p>
                         </div>
                     </div>
@@ -35,7 +35,7 @@ export default function ImpressumPage() {
                     <div className="space-y-4 pt-4 text-xs text-zinc-500">
                         <p>
                             <strong>Responsible for content according to § 55 Abs. 2 RStV:</strong><br />
-                            Anıl Öncül<br />
+                            Nazli Uysal<br />
                             (Address same as above)
                         </p>
                         <p>
