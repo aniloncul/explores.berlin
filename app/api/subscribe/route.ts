@@ -27,7 +27,7 @@ export async function POST(req: Request) {
             body: JSON.stringify({
                 email: email,
                 includeListIds: [2], // Target list ID after confirmation
-                templateId: 1, // Using Default DOI Template ID #1 to ensure it works
+                templateId: 6, // Your Custom Design DOI Template ID
                 redirectionUrl: 'https://explores-berlin.vercel.app/subscribe?verified=true' // Redirect here after clicking email
             })
         });
