@@ -150,6 +150,8 @@ export default function SubscribePage() {
                 <div className="flex justify-center gap-6 text-xs font-medium text-zinc-600 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
                     <Link href="/" className="hover:text-white transition-colors">Frontpage</Link>
                     <span>•</span>
+                    <Link href="/impressum" className="hover:text-white transition-colors">Impressum</Link>
+                    <span>•</span>
                     <Link href="https://instagram.com/exploresberlin" target="_blank" className="hover:text-white transition-colors">Instagram</Link>
                 </div>
             </div>

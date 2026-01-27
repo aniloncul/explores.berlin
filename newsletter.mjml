@@ -21,12 +21,10 @@
     <mj-section padding="40px 0 20px 0" background-color="#000000">
       <mj-column>
         <mj-text align="center" font-size="52px" font-weight="700" color="#ffffff" css-class="title-text" line-height="1">
-          THE BERLINER
+          Explores Berlın
         </mj-text>
-         <mj-text align="center" font-size="18px" font-weight="400" color="#ff0033" letter-spacing="8px" padding-top="5px">
-          RAVE EDITION
-        </mj-text>
-        <mj-divider border-color="#ff0033" border-width="4px" width="100px" padding-top="20px"></mj-divider>
+     
+
       </mj-column>
     </mj-section>
 
@@ -35,9 +33,9 @@
       <mj-column>
         <mj-text align="center" font-size="12px" letter-spacing="2px">
           <a href="#" style="color:#fff; margin:0 10px;">EVENTS</a> |
-          <a href="#" style="color:#fff; margin:0 10px;">NEWS</a> |
-          <a href="#" style="color:#fff; margin:0 10px;">GIVEAWAY</a> |
-          <a href="#" style="color:#fff; margin:0 10px;">FOOD</a>
+          <a href="#" style="color:#fff; margin:0 10px;">FOOD</a> |
+          <a href="#" style="color:#fff; margin:0 10px;">EXHIBITIONS</a> |
+          <a href="#" style="color:#fff; margin:0 10px;">CULTURE</a>
         </mj-text>
       </mj-column>
     </mj-section>
@@ -46,10 +44,10 @@
     <mj-section background-color="#0a0a0a" padding="40px 20px">
       <!-- Editor Image/Avatar column -->
       <mj-column width="25%">
-         <mj-image width="80px" border-radius="50%" src="nazli.jpg" alt="Nazli"></mj-image>
+         <mj-image width="80px" border-radius="50%" src="https://explores-berlin.vercel.app/nazli.jpg" alt="Editor"></mj-image>
          <mj-text align="center" font-size="12px" color="#666" padding-top="10px">
            NAZLI<br>
-           <span style="color:#444">TECHNO CURATOR</span>
+      
          </mj-text>
       </mj-column>
       
@@ -90,16 +88,16 @@
       <mj-column>
         <!-- Highlight Image with Glow/Border -->
         <mj-image 
-            src="https://images.unsplash.com/photo-1514525253440-b393452e2347?ixlib=rb-1.2.1&auto=format&fit=crop&w=1200&q=80" 
+            src="https://explores-berlin.vercel.app/newsletter/2026_W05/weekend_guide.png" 
             alt="Weekend Guide Highlight" 
-            href="https://instagram.com/exploresberlin"
+            href="https://www.instagram.com/p/DTyY3HjiGRm/?img_index=1"
             css-class="highlight-img"
             border-radius="4px"
         ></mj-image>
         
         <mj-text align="left" font-size="28px" font-weight="700" padding-top="20px" text-transform="uppercase">
-          <a href="https://instagram.com/exploresberlin" style="color:#fff; text-decoration:none;">
-            The Ultimate Weekend Guide: Jan 26-28
+          <a href="https://www.instagram.com/p/DTyY3HjiGRm/?img_index=1" style="color:#fff; text-decoration:none;">
+            The Ultimate Weekend Guide: Jan 23-25
           </a>
         </mj-text>
         <mj-text color="#888" padding-top="10px">
@@ -112,42 +110,42 @@
     <mj-section padding="20px 20px 10px 20px" background-color="#080808">
         <mj-column>
              <mj-text color="#ff0033" font-weight="bold" font-size="14px" letter-spacing="1px" padding-bottom="10px" text-transform="uppercase">
-                Trending on Instagram
+                Weekly Recap
             </mj-text>
         </mj-column>
     </mj-section>
-    
+
     <mj-section padding="0 10px 40px 10px" background-color="#080808">
-      <!-- Event 1: Weserstr -->
+      <!-- Event 1 -->
       <mj-column width="50%" padding="10px">
         <mj-image 
-            src="weserstr.png" 
-            alt="Berlin's Iconic Street"
+            src="https://explores-berlin.vercel.app/newsletter/2026_W05/Event-1.png" 
+            alt="Event 1"
             href="https://www.instagram.com/p/DT8bvQ9CCod/"
             height="200px"
             object-fit="cover"
             border-radius="4px"
         ></mj-image>
         <mj-text font-size="16px" font-weight="bold" padding-top="15px">
-           <a href="https://www.instagram.com/p/DT8bvQ9CCod/" style="color:#ffffff;">Berlin's Iconic Street to Go Out</a>
+           <a href="#" style="color:#ffffff;">Wesserstraße: Berlin's Iconic Street to Go Out </a>
         </mj-text>
         <mj-text color="#666" font-size="12px" padding-top="5px">
-            Best bars & vibes in Neukölln
+            
         </mj-text>
       </mj-column>
 
-      <!-- Event 2 (Placeholder/Kept) -->
+      <!-- Event 2 -->
       <mj-column width="50%" padding="10px">
         <mj-image 
-            src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80" 
+            src="https://explores-berlin.vercel.app/newsletter/2026_W05/Event-2.png" 
             alt="Event 2"
-            href="#"
+            href="https://www.instagram.com/p/DTtdR7FCOA3/"
             height="200px"
             object-fit="cover"
             border-radius="4px"
         ></mj-image>
         <mj-text font-size="16px" font-weight="bold" padding-top="15px">
-           <a href="#" style="color:#ffffff;">Rave Alert: RSO</a>
+           <a href="#" style="color:#ffffff;">Northen Lights of Berlin</a>
         </mj-text>
          <mj-text color="#666" font-size="12px" padding-top="5px">
             Saturday, 23:59
@@ -160,7 +158,7 @@
       <mj-column>
         <mj-text align="center" color="#444444" font-size="10px" text-transform="uppercase" font-family="monospace">
           © 2026 Explores Berlin<br><br>
-          <a href="#" style="color:#666; text-decoration:none;">Unsubscribe</a> &nbsp;|&nbsp; <a href="#" style="color:#666; text-decoration:none;">View in Browser</a>
+          <a href="{{{ unsubscribe }}}" style="color:#666; text-decoration:none;">Unsubscribe</a> &nbsp;|&nbsp; <a href="{{{ mirror }}}" style="color:#666; text-decoration:none;">View in Browser</a> &nbsp;|&nbsp; <a href="https://explores-berlin.vercel.app/impressum" style="color:#666; text-decoration:none;">Impressum</a>
         </mj-text>
       </mj-column>
     </mj-section>
