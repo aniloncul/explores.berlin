@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -21,34 +20,25 @@ export default function SubscribePage() {
         setErrorMessage("");
 
         try {
-            // Check if email already exists
-            const { data: existing } = await supabase
-                .from("subscribers")
-                .select("id")
-                .eq("email", email)
-                .single();
+            const response = await fetch('/api/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
 
-            if (existing) {
-                setStatus("exists");
-                setIsLoading(false);
-                return;
-            }
+            const data = await response.json();
 
-            // Insert new subscriber
-            const { error } = await supabase
-                .from("subscribers")
-                .insert([{ email }]);
-
-            if (error) {
-                if (error.code === '23505') { // Unique violation
+            if (response.ok) {
+                if (data.status === 'exists') {
                     setStatus("exists");
                 } else {
-                    throw error;
+                    setStatus("success");
+                    setEmail("");
                 }
             } else {
-                setStatus("success");
-                setEmail("");
+                throw new Error(data.error || "Subscription failed");
             }
+
         } catch (error: any) {
             console.error("Subscription error:", error);
             setStatus("error");
