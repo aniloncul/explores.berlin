@@ -16,8 +16,8 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
         }
 
-        // Add contact to Brevo
-        const response = await fetch('https://api.brevo.com/v3/contacts', {
+        // Send Double Opt-in Confirmation
+        const response = await fetch('https://api.brevo.com/v3/contacts/doubleOptinConfirmation', {
             method: 'POST',
             headers: {
                 'accept': 'application/json',
@@ -26,22 +26,21 @@ export async function POST(req: Request) {
             },
             body: JSON.stringify({
                 email: email,
-                updateEnabled: true, // Update if exists
-                // listIds: [2] // Optional: Add to specific list ID if you have created one in Brevo
+                includeListIds: [2], // Target list ID after confirmation
+                templateId: 6, // Your DOI Template ID
+                redirectionUrl: 'https://explores-berlin.vercel.app/subscribe?verified=true' // Redirect here after clicking email
             })
         });
 
         if (!response.ok) {
             const errorData = await response.json();
-            // If contact already exists, we consider it a success (or handle specifically)
-            if (errorData.code === 'duplicate_parameter') {
-                return NextResponse.json({ message: 'Contact already exists', status: 'exists' }, { status: 200 });
-            }
+            // If contact already exists/subscribed, Brevo might return 400.
+            // We can check error code but for DOI flow, usually we just show "Check email"
             console.error('Brevo API Error:', errorData);
-            return NextResponse.json({ error: 'Failed to add to newsletter' }, { status: response.status });
+            return NextResponse.json({ error: 'Failed to initiate subscription' }, { status: response.status });
         }
 
-        return NextResponse.json({ message: 'Successfully subscribed' }, { status: 200 });
+        return NextResponse.json({ message: 'Confirmation email sent' }, { status: 200 });
 
     } catch (error) {
         console.error('Subscription API Error:', error);

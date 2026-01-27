@@ -1,14 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
-export default function SubscribePage() {
+function SubscribeContent() {
     const [email, setEmail] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-    const [status, setStatus] = useState<"idle" | "success" | "error" | "exists">("idle");
+    const [status, setStatus] = useState<"idle" | "success" | "error" | "exists" | "verified">("idle");
     const [errorMessage, setErrorMessage] = useState("");
+
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        if (searchParams.get('verified')) {
+            setStatus('verified');
+        }
+    }, [searchParams]);
 
     const handleSubscribe = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -74,18 +83,32 @@ export default function SubscribePage() {
                 {/* Form Card */}
                 <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
 
-                    {status === "success" ? (
+                    {status === "verified" ? (
                         <div className="flex flex-col items-center space-y-4 py-6 text-center animate-in zoom-in duration-300">
-                            <div className="rounded-full bg-green-500/10 p-3">
-                                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                            <div className="rounded-full bg-rose-500/10 p-3">
+                                <CheckCircle2 className="h-8 w-8 text-rose-500" />
                             </div>
-                            <h3 className="text-xl font-semibold text-white">You're on the list.</h3>
-                            <p className="text-zinc-400">Keep an eye on your inbox. Things move fast in Berlin.</p>
+                            <h3 className="text-xl font-bold text-white uppercase tracking-wider">Confirmed</h3>
+                            <p className="text-zinc-400">You have officially joined the underground.</p>
+                            <Link
+                                href="/"
+                                className="mt-4 inline-block rounded-xl bg-white px-6 py-2 text-sm font-bold text-black transition-transform hover:scale-105"
+                            >
+                                Enter Site
+                            </Link>
+                        </div>
+                    ) : status === "success" ? (
+                        <div className="flex flex-col items-center space-y-4 py-6 text-center animate-in zoom-in duration-300">
+                            <div className="rounded-full bg-blue-500/10 p-3">
+                                <CheckCircle2 className="h-8 w-8 text-blue-500" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-white">Check your email.</h3>
+                            <p className="text-zinc-400">We sent you a confirmation link.<br />Click it to join the list.</p>
                             <button
                                 onClick={() => setStatus("idle")}
                                 className="mt-4 text-sm text-zinc-500 underline underline-offset-4 hover:text-white"
                             >
-                                Add another email
+                                Use a different email
                             </button>
                         </div>
                     ) : (
@@ -156,5 +179,13 @@ export default function SubscribePage() {
                 </div>
             </div>
         </main>
+    );
+}
+
+export default function SubscribePage() {
+    return (
+        <Suspense fallback={<div className="flex min-h-screen w-full items-center justify-center bg-black text-white">Loading...</div>}>
+            <SubscribeContent />
+        </Suspense>
     );
 }
