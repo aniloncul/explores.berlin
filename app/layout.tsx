@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Press_Start_2P } from "next/font/google";
+import { Inter, Press_Start_2P, Goldman } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -7,6 +7,11 @@ const pressStart2P = Press_Start_2P({
     weight: "400",
     subsets: ["latin"],
     variable: "--font-pixel"
+});
+const goldman = Goldman({
+    weight: ["400", "700"],
+    subsets: ["latin"],
+    variable: "--font-goldman"
 });
 
 export const metadata: Metadata = {
@@ -21,7 +26,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-            <body className={`${inter.className} ${pressStart2P.variable}`} suppressHydrationWarning>{children}</body>
+            <body className={`${inter.className} ${pressStart2P.variable} ${goldman.variable}`} suppressHydrationWarning>{children}</body>
         </html>
     );
 }

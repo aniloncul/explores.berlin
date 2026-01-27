@@ -13,7 +13,7 @@ export default function SubscribePage() {
 
     const handleSubscribe = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!email) return;
 
         setIsLoading(true);
@@ -59,31 +59,31 @@ export default function SubscribePage() {
     };
 
     return (
-        <main className="flex min-h-screen w-full flex-col items-center justify-center bg-black px-4 py-8 text-white selection:bg-rose-500 selection:text-white">
-            
+        <main className="flex min-h-screen w-full flex-col items-center justify-center bg-black px-4 py-8 text-white selection:bg-rose-500 selection:text-white font-goldman">
+
             {/* Background Effects */}
             <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black opacity-50" />
             <div className="absolute inset-0 z-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150" />
 
             <div className="z-10 w-full max-w-md space-y-8 text-center">
-                
+
                 {/* Logo / Brand */}
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                     <div className="mx-auto mb-6 h-16 w-16 rounded-2xl bg-gradient-to-br from-rose-500 to-orange-600 shadow-[0_0_40px_-5px_rgba(244,63,94,0.4)]" />
+                    <div className="mx-auto mb-6 h-16 w-16 rounded-2xl bg-gradient-to-br from-rose-500 to-orange-600 shadow-[0_0_40px_-5px_rgba(244,63,94,0.4)]" />
                     <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
                         <span className="bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent">
                             Explores.Berlin
                         </span>
                     </h1>
                     <p className="mt-2 text-zinc-400">
-                        The unspoken guide to the city's underground.<br/>
+                        The unspoken guide to the city's underground.<br />
                         <span className="text-rose-500/80">Raves. Culture. Secrets.</span>
                     </p>
                 </div>
 
                 {/* Form Card */}
                 <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
-                    
+
                     {status === "success" ? (
                         <div className="flex flex-col items-center space-y-4 py-6 text-center animate-in zoom-in duration-300">
                             <div className="rounded-full bg-green-500/10 p-3">
@@ -91,7 +91,7 @@ export default function SubscribePage() {
                             </div>
                             <h3 className="text-xl font-semibold text-white">You're on the list.</h3>
                             <p className="text-zinc-400">Keep an eye on your inbox. Things move fast in Berlin.</p>
-                            <button 
+                            <button
                                 onClick={() => setStatus("idle")}
                                 className="mt-4 text-sm text-zinc-500 underline underline-offset-4 hover:text-white"
                             >
@@ -127,7 +127,7 @@ export default function SubscribePage() {
                                 </div>
                             )}
 
-                             {status === "exists" && (
+                            {status === "exists" && (
                                 <div className="flex items-center gap-2 rounded-lg bg-orange-950/30 px-3 py-2 text-sm text-orange-400">
                                     <AlertCircle className="h-4 w-4" />
                                     <span>You are already subscribed!</span>
@@ -158,9 +158,9 @@ export default function SubscribePage() {
 
                 {/* Footer Links */}
                 <div className="flex justify-center gap-6 text-xs font-medium text-zinc-600 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
-                     <Link href="/" className="hover:text-white transition-colors">Frontpage</Link> 
-                     <span>•</span>
-                     <Link href="https://instagram.com/exploresberlin" target="_blank" className="hover:text-white transition-colors">Instagram</Link>
+                    <Link href="/" className="hover:text-white transition-colors">Frontpage</Link>
+                    <span>•</span>
+                    <Link href="https://instagram.com/exploresberlin" target="_blank" className="hover:text-white transition-colors">Instagram</Link>
                 </div>
             </div>
         </main>
