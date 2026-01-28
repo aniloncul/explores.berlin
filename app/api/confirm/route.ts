@@ -17,6 +17,7 @@ export async function GET(req: Request) {
     try {
         // 1. Add contact to the main newsletter list (ID 2)
         // If contact doesn't exist, this creates it. If exists, it updates lists.
+        // 1. Add contact to the main newsletter list (ID 2)
         const response = await fetch('https://api.brevo.com/v3/contacts', {
             method: 'POST',
             headers: {
@@ -27,9 +28,17 @@ export async function GET(req: Request) {
             body: JSON.stringify({
                 email: email,
                 listIds: [2], // Main Newsletter List
-                updateEnabled: true
+                updateEnabled: true, // Update if exists
+                emailBlacklisted: false // Unsubscribe them from blacklist if they are re-subscribing
             })
         });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Brevo Contact Creation Error:', errorData);
+            // Redirect to an error state so the user knows something went wrong
+            return NextResponse.redirect('https://explores-berlin.vercel.app/subscribe?verified=false');
+        }
 
         // 2. Redirect user to the confirmed page
         return NextResponse.redirect('https://explores-berlin.vercel.app/subscribe?verified=true');
