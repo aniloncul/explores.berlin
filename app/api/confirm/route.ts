@@ -27,7 +27,7 @@ export async function GET(req: Request) {
             },
             body: JSON.stringify({
                 email: email,
-                listIds: [2], // Main Newsletter List
+                listIds: [3], // Main Newsletter List (identified_contacts)
                 updateEnabled: true, // Update if exists
                 emailBlacklisted: false // Unsubscribe them from blacklist if they are re-subscribing
             })
