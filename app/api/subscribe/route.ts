@@ -16,7 +16,30 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
         }
 
-        // Send Confirmation Email Manually (Bypassing DOI Validation)
+        // 1. Add to Temporary List (ID 2) - "Pending Verification"
+        const createContactResponse = await fetch('https://api.brevo.com/v3/contacts', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'api-key': apiKey,
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: email,
+                listIds: [2], // Temporary List
+                updateEnabled: true
+            })
+        });
+
+        if (!createContactResponse.ok) {
+            // If error is not "Contact already exists", handle it. 
+            // But updateEnabled: true handles existence. 
+            // Just proceed or log warning usually.
+            const error = await createContactResponse.json();
+            console.log("Contact creation warning:", error);
+        }
+
+        // 2. Send Confirmation Email Manually (Bypassing DOI Validation)
         const confirmLink = `https://explores-berlin.vercel.app/api/confirm?email=${encodeURIComponent(email)}`;
 
         const response = await fetch('https://api.brevo.com/v3/smtp/email', {

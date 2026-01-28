@@ -27,7 +27,8 @@ export async function GET(req: Request) {
             },
             body: JSON.stringify({
                 email: email,
-                listIds: [3], // Main Newsletter List (identified_contacts)
+                listIds: [3], // Add to Main List
+                unlinkListIds: [2], // Remove from Temporary List
                 updateEnabled: true, // Update if exists
                 emailBlacklisted: false // Unsubscribe them from blacklist if they are re-subscribing
             })
