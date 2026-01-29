@@ -133,11 +133,11 @@ function SubscribeContent() {
                             <div className="rounded-full bg-blue-500/10 p-3">
                                 <CheckCircle2 className="h-8 w-8 text-blue-500" />
                             </div>
-                            <h3 className="text-xl font-semibold text-white">Check your email.</h3>
-                            <p className="text-zinc-400">We sent you a confirmation link.<br />Click it to join the list.</p>
+                            <h3 className="text-xl font-semibold text-white font-goldman">Check your email.</h3>
+                            <p className="text-zinc-400 font-goldman">We sent you a confirmation link.<br />Click it to join the list.</p>
                             <button
                                 onClick={() => setStatus("idle")}
-                                className="mt-4 text-sm text-zinc-500 underline underline-offset-4 hover:text-white"
+                                className="mt-4 text-sm text-zinc-500 underline underline-offset-4 hover:text-white font-goldman"
                             >
                                 Use a different email
                             </button>
@@ -145,7 +145,7 @@ function SubscribeContent() {
                     ) : (
                         <form onSubmit={handleSubscribe} className="space-y-4">
                             <div className="space-y-2 text-left">
-                                <label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-zinc-500 ml-1">
+                                <label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-zinc-500 ml-1 font-goldman">
                                     Email Address
                                 </label>
                                 <input
@@ -155,24 +155,24 @@ function SubscribeContent() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="you@example.com"
-                                    className="w-full rounded-xl border border-zinc-800 bg-black/50 px-4 py-3.5 text-base text-white placeholder-zinc-600 outline-none transition-all focus:border-rose-500 focus:ring-1 focus:ring-rose-500 disabled:opacity-50"
+                                    className="w-full rounded-xl border border-zinc-800 bg-black/50 px-4 py-3.5 text-base text-white placeholder-zinc-600 outline-none transition-all focus:border-rose-500 focus:ring-1 focus:ring-rose-500 disabled:opacity-50 font-goldman"
                                     disabled={isLoading}
                                 />
-                                {/* Hint so mobile keyboard doesn't hide input */}
-                                <p className="text-[10px] text-zinc-600 pl-1">
+                                {/* Hint */}
+                                <p className="text-[10px] text-zinc-600 pl-1 font-goldman">
                                     Weekly updates. No spam. Unsubscribe anytime.
                                 </p>
                             </div>
 
                             {status === "error" && (
-                                <div className="flex items-center gap-2 rounded-lg bg-red-950/30 px-3 py-2 text-sm text-red-400">
+                                <div className="flex items-center gap-2 rounded-lg bg-red-950/30 px-3 py-2 text-sm text-red-400 font-goldman">
                                     <AlertCircle className="h-4 w-4" />
                                     <span>{errorMessage}</span>
                                 </div>
                             )}
 
                             {status === "exists" && (
-                                <div className="flex items-center gap-2 rounded-lg bg-orange-950/30 px-3 py-2 text-sm text-orange-400">
+                                <div className="flex items-center gap-2 rounded-lg bg-orange-950/30 px-3 py-2 text-sm text-orange-400 font-goldman">
                                     <AlertCircle className="h-4 w-4" />
                                     <span>You are already subscribed!</span>
                                 </div>
@@ -181,7 +181,7 @@ function SubscribeContent() {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="group relative w-full overflow-hidden rounded-xl bg-white px-4 py-3.5 text-base font-bold text-black transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+                                className="group relative w-full overflow-hidden rounded-xl bg-white px-4 py-3.5 text-base font-bold text-black transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 font-goldman tracking-widest"
                             >
                                 <span className="relative z-10 flex items-center justify-center gap-2">
                                     {isLoading ? (
