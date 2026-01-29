@@ -67,14 +67,32 @@ function SubscribeContent() {
             <div className="z-10 w-full max-w-md space-y-8 text-center">
 
                 {/* Logo / Brand */}
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="mx-auto mb-6 h-16 w-16 rounded-2xl bg-gradient-to-br from-rose-500 to-orange-600 shadow-[0_0_40px_-5px_rgba(244,63,94,0.4)]" />
-                    <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                        <span className="bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent">
-                            Explores.Berlin
-                        </span>
-                    </h1>
-                    <p className="mt-2 text-zinc-400">
+                {/* Logo / Brand */}
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 flex flex-col items-center">
+
+                    <div className="flex items-center justify-center gap-1 mb-4">
+                        {/* Left Bear - Faces Right (Default) */}
+                        <img
+                            src="https://explores-berlin.vercel.app/disco-bear-sigil.png"
+                            alt="Bear Left"
+                            className="h-24 w-auto object-contain"
+                        />
+
+                        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-center px-2">
+                            <span className="bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent font-goldman">
+                                Explores.Berlin
+                            </span>
+                        </h1>
+
+                        {/* Right Bear - Faces Left (Flipped) */}
+                        <img
+                            src="https://explores-berlin.vercel.app/disco-bear-sigil.png"
+                            alt="Bear Right"
+                            className="h-24 w-auto object-contain scale-x-[-1]"
+                        />
+                    </div>
+
+                    <p className="text-zinc-400 font-goldman text-sm">
                         The unspoken guide to the city's underground.<br />
                         <span className="text-rose-500/80">Raves. Culture. Secrets.</span>
                     </p>
