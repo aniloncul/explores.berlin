@@ -43,7 +43,7 @@ body {
 }
 
 .font-goldman {
-  font-family: var(--font-goldman), cursive;
+  font-family: var(--font-goldman), 'Courier New', monospace;
 }
 
 @layer utilities {

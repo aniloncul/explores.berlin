@@ -81,21 +81,52 @@ function SubscribeContent() {
                 </div>
 
                 {/* Form Card */}
-                <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
+                <div className="relative overflow-hidden rounded-2xl border border-zinc-900 bg-[#0f0f0f] p-10 shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
 
                     {status === "verified" ? (
-                        <div className="flex flex-col items-center space-y-4 py-6 text-center animate-in zoom-in duration-300">
-                            <div className="rounded-full bg-rose-500/10 p-3">
-                                <CheckCircle2 className="h-8 w-8 text-rose-500" />
+                        <div className="flex flex-col items-start space-y-6 pb-2 text-left animate-in zoom-in duration-300">
+                            {/* Hero Image - Flush with card edges using negative margins */}
+                            <div className="-mx-6 -mt-6 mb-2 border-b border-zinc-800">
+                                <img
+                                    src="https://explores-berlin.vercel.app/newsletter/assets/welcome-header-neon.png"
+                                    alt="Berlin Vibes"
+                                    className="w-full h-auto object-cover"
+                                />
                             </div>
-                            <h3 className="text-xl font-bold text-white uppercase tracking-wider">Confirmed</h3>
-                            <p className="text-zinc-400">You have officially joined the underground.</p>
-                            <Link
-                                href="/"
-                                className="mt-4 inline-block rounded-xl bg-white px-6 py-2 text-sm font-bold text-black transition-transform hover:scale-105"
-                            >
-                                Enter Site
-                            </Link>
+
+                            <h2 className="text-2xl font-bold uppercase text-white font-goldman">
+                                You represent the culture.
+                            </h2>
+
+                            <p className="text-zinc-300 text-base leading-relaxed font-goldman">
+                                Thanks for subscribing. You’re now part of a community that looks beyond the Brandenburger Tor.
+                            </p>
+
+                            <div className="w-full space-y-3">
+                                {[
+                                    "Weekly curated guides (Thursday drops)",
+                                    "Hidden bars & underground venues",
+                                    "Sunday survival tips"
+                                ].map((item, i) => (
+                                    <div key={i} className="flex items-start gap-4">
+                                        <span className="text-[#4deeea] font-bold text-lg leading-none mt-0.5 font-mono">x</span>
+                                        <span className="text-zinc-400 text-sm font-goldman">{item}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <p className="text-zinc-500 text-xs uppercase tracking-wider font-goldman pt-2">
+                                Explore our current map while waiting for the next drop.
+                            </p>
+
+                            <div className="flex justify-center w-full pt-2">
+                                <Link
+                                    href="/"
+                                    className="inline-block border-[3px] border-white bg-white text-black px-8 py-3.5 text-base font-bold uppercase tracking-widest transition-all duration-300 hover:bg-transparent hover:text-white hover:border-[#4deeea] hover:shadow-[0_0_20px_rgba(77,238,234,0.6)] font-goldman rounded"
+                                >
+                                    Start Exploring
+                                </Link>
+                            </div>
                         </div>
                     ) : status === "success" ? (
                         <div className="flex flex-col items-center space-y-4 py-6 text-center animate-in zoom-in duration-300">
