@@ -77,18 +77,18 @@ function SubscribeContent() {
                             </span>
                         </h1>
 
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center justify-center">
                             {/* Left Bear - Faces Right (Default) */}
                             <img
                                 src="https://explores-berlin.vercel.app/rave-bear-black.png"
                                 alt="Bear Left"
-                                className="h-32 w-auto object-contain"
+                                className="h-48 w-auto object-contain -mr-8"
                             />
                             {/* Right Bear - Faces Left (Flipped) */}
                             <img
                                 src="https://explores-berlin.vercel.app/rave-bear-black.png"
                                 alt="Bear Right"
-                                className="h-32 w-auto object-contain scale-x-[-1]"
+                                className="h-48 w-auto object-contain scale-x-[-1] -ml-8"
                             />
                         </div>
                     </div>
