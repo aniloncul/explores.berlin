@@ -68,36 +68,39 @@ function SubscribeContent() {
 
                 {/* Logo / Brand */}
                 {/* Logo / Brand */}
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 flex flex-col items-center">
+                {/* Logo / Brand */}
+                {status !== "verified" && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 flex flex-col items-center">
 
-                    <div className="flex flex-col items-center justify-center mb-4">
-                        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-center px-2 mb-2">
-                            <span className="bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent font-goldman">
-                                EXPLORES BERLIN
-                            </span>
-                        </h1>
+                        <div className="flex flex-col items-center justify-center mb-4">
+                            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-center px-2 mb-2">
+                                <span className="bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent font-goldman">
+                                    EXPLORES BERLIN
+                                </span>
+                            </h1>
 
-                        <div className="flex items-center justify-center">
-                            {/* Left Bear - Faces Right (Default) */}
-                            <img
-                                src="https://explores-berlin.vercel.app/rave-bear-black.png"
-                                alt="Bear Left"
-                                className="h-48 w-auto object-contain -mr-8"
-                            />
-                            {/* Right Bear - Faces Left (Flipped) */}
-                            <img
-                                src="https://explores-berlin.vercel.app/rave-bear-black.png"
-                                alt="Bear Right"
-                                className="h-48 w-auto object-contain scale-x-[-1] -ml-8"
-                            />
+                            <div className="flex items-center justify-center">
+                                {/* Left Bear - Faces Right (Default) */}
+                                <img
+                                    src="https://explores-berlin.vercel.app/rave-bear-black.png"
+                                    alt="Bear Left"
+                                    className="h-48 w-auto object-contain -mr-8"
+                                />
+                                {/* Right Bear - Faces Left (Flipped) */}
+                                <img
+                                    src="https://explores-berlin.vercel.app/rave-bear-black.png"
+                                    alt="Bear Right"
+                                    className="h-48 w-auto object-contain scale-x-[-1] -ml-8"
+                                />
+                            </div>
                         </div>
-                    </div>
 
-                    <p className="text-zinc-400 font-goldman text-sm">
-                        The actual Berliner experience.<br />
-                        <span className="text-rose-500/80">Discover the city's underground.</span>
-                    </p>
-                </div>
+                        <p className="text-zinc-400 font-goldman text-sm">
+                            The actual Berliner experience.<br />
+                            <span className="text-rose-500/80">Discover the city's underground.</span>
+                        </p>
+                    </div>
+                )}
 
                 {/* Form Card */}
                 <div className="relative overflow-hidden rounded-2xl border border-zinc-900 bg-[#0f0f0f] p-10 shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
