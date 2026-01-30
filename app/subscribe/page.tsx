@@ -225,7 +225,9 @@ function SubscribeContent() {
                     <span>•</span>
                     <Link href="/impressum" className="hover:text-white transition-colors">Impressum</Link>
                     <span>•</span>
-                    <Link href="https://instagram.com/exploresberlin" target="_blank" className="hover:text-white transition-colors">Instagram</Link>
+                    <Link href="https://instagram.com/explores.berlin" target="_blank" className="hover:text-white transition-colors">Instagram</Link>
+                    <span>•</span>
+                    <Link href="https://www.tiktok.com/@explores.berlin" target="_blank" className="hover:text-white transition-colors">TikTok</Link>
                 </div>
             </div>
         </main>
