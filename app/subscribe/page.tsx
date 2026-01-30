@@ -72,7 +72,7 @@ function SubscribeContent() {
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 flex flex-col items-center">
 
                     <div className="flex flex-col items-center justify-center mb-4">
-                        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-center px-2 mb-6">
+                        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-center px-2">
                             <span className="bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent font-goldman">
                                 EXPLORES BERLIN
                             </span>

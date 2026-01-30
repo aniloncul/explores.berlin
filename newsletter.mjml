@@ -153,6 +153,45 @@
       </mj-column>
     </mj-section>
 
+    <!-- Events Row 2 -->
+    <mj-section padding="0 10px 40px 10px" background-color="#080808">
+      <!-- Event 3 -->
+      <mj-column width="50%" padding="10px">
+        <mj-image 
+            src="https://explores-berlin.vercel.app/newsletter/2026_W05/Event-3.png" 
+            alt="Event 3"
+            href="#"
+            height="200px"
+            object-fit="cover"
+            border-radius="4px"
+        ></mj-image>
+        <mj-text font-size="16px" font-weight="bold" padding-top="15px">
+           <a href="#" style="color:#ffffff;">Event 3 Title</a>
+        </mj-text>
+         <mj-text color="#666" font-size="12px" padding-top="5px">
+            Friday, 22:00
+        </mj-text>
+      </mj-column>
+
+      <!-- Event 4 -->
+      <mj-column width="50%" padding="10px">
+        <mj-image 
+            src="https://explores-berlin.vercel.app/newsletter/2026_W05/Event-4.png" 
+            alt="Event 4"
+            href="#"
+            height="200px"
+            object-fit="cover"
+            border-radius="4px"
+        ></mj-image>
+        <mj-text font-size="16px" font-weight="bold" padding-top="15px">
+           <a href="#" style="color:#ffffff;">Event 4 Title</a>
+        </mj-text>
+         <mj-text color="#666" font-size="12px" padding-top="5px">
+            Sunday, 20:00
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
     <!-- Footer -->
     <mj-section background-color="#000000" padding="40px 20px" border-top="1px solid #222">
       <mj-column>
