@@ -1,5 +1,5 @@
 {
-    "week": "05",
+    "week": "06",
     "year": "2026",
     "title": "INTO THE DUST",
     "editor": {
@@ -11,39 +11,39 @@
         "This weekend is special. We have a rare b2b set at RSO and a 36-hour marathon kicking off Friday. Check the full guide below."
     ],
     "highlight": {
-        "title": "The Ultimate Weekend Guide: Jan 23-25",
+        "title": "The Ultimate Weekend Guide: Jan 30 - Feb 01",
         "description": "Your comprehensive list of every open floor, timetable, and door policy for the upcoming 72 hours.",
-        "image": "https://explores-berlin.vercel.app/newsletter/2026_W05/weekend_guide.png",
+        "image": "https://explores-berlin.vercel.app/newsletter/2026_W06/weekend_guide.png",
         "link": "https://www.instagram.com/p/DTyY3HjiGRm/?img_index=1"
     },
     "events": [
         {
             "title": "Wesserstraße: Berlin's Iconic Street to Go Out",
-            "image": "https://explores-berlin.vercel.app/newsletter/2026_W05/Event-3.png",
+            "image": "https://explores-berlin.vercel.app/newsletter/2026_W06/Event-3.png",
             "link": "https://www.instagram.com/p/DT8bvQ9CCod/",
             "date": ""
         },
         {
             "title": "Northen Lights of Berlin",
-            "image": "https://explores-berlin.vercel.app/newsletter/2026_W05/Event-4.png",
+            "image": "https://explores-berlin.vercel.app/newsletter/2026_W06/Event-4.png",
             "link": "https://www.instagram.com/p/DTtdR7FCOA3/",
             "date": "Saturday, 23:59"
         },
         {
             "title": "New Exhibition at Berghain Halle",
-            "image": "https://explores-berlin.vercel.app/newsletter/2026_W05/Event-5.png",
+            "image": "https://explores-berlin.vercel.app/newsletter/2026_W06/Event-5.png",
             "link": "https://www.instagram.com/p/DT0Qm7KiBy1/",
             "date": ""
         },
         {
             "title": "Berlinale 2026 in the former E-Werk Techno Club",
-            "image": "https://explores-berlin.vercel.app/newsletter/2026_W05/Event-1.png",
+            "image": "https://explores-berlin.vercel.app/newsletter/2026_W06/Event-1.png",
             "link": "https://www.instagram.com/p/DUD9pEOCFl0/",
             "date": ""
         },
         {
             "title": "5 Club Nights 26 Jan - 1 Feb",
-            "image": "https://explores-berlin.vercel.app/newsletter/2026_W05/Event-2.png",
+            "image": "https://explores-berlin.vercel.app/newsletter/2026_W06/Event-2.png",
             "link": "https://www.instagram.com/p/DT_QqsYiOqu/",
             "date": ""
         }
