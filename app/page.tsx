@@ -10,6 +10,7 @@ import MapComponent from "@/components/Map";
 import { Calendar, Search } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import PixelTicker from "@/components/PixelTicker";
+import Navigation from "@/components/Navigation";
 
 export default function Page() {
     // Removed dateFilter and activeCategories from useMapStore destructuring
@@ -128,22 +129,9 @@ export default function Page() {
     }, [filteredLocations, visibleLocationIds]);
 
     return (
-        <main className="flex h-screen w-full flex-col bg-white dark:bg-black overflow-hidden">
-            {/* Header / Top Bar */}
-            <header className="relative z-10 flex w-full items-center border-b border-gray-200 bg-white/80 dark:border-zinc-800 dark:bg-black/80 h-16 overflow-hidden">
-                {/* Ticker Layer (Behind) */}
-                <div className="absolute inset-0 flex items-center z-0 pt-1">
-                    <PixelTicker text="BERLIN FASHION WEEK 16-17.12.2025   ***   FINAL BIG NEW YEARS DISCOUNT @ZARA   ***   LADY GAGA CONCERT @ UBER ARENA 24.12.2025   ***   BERLINALE FILM FESTIVAL PRE-SALE STARTS SOON   ***   TECHNO VIKING RETURN TOUR 2026   ***   DONER KEBAB CHAMPIONSHIP KREUZBERG" />
-                </div>
-
-                {/* Logo Layer (Top, Masking) */}
-                <div className="z-10 flex items-center gap-2 bg-white dark:bg-black px-6 h-full shadow-[10px_0_20px_rgba(255,255,255,1)] dark:shadow-[10px_0_20px_rgba(0,0,0,1)]">
-                    <img src="/nazli.jpg" alt="Logo" className="h-8 w-8 rounded-lg object-cover" />
-                    <h1 className="text-xl font-bold bg-gradient-to-r from-rose-500 to-orange-500 bg-clip-text text-transparent">
-                        Explores.Berlin
-                    </h1>
-                </div>
-            </header>
+        <main className="flex h-screen w-full flex-col bg-black overflow-hidden pt-16">
+            {/* Navigation */}
+            <Navigation />
 
             {/* Content */}
             <div className="flex flex-1 overflow-hidden relative">

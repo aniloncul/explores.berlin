@@ -11,38 +11,38 @@ const weekArg = process.argv[2] || 'week-05';
 const dataPath = path.join(__dirname, 'data', `${weekArg}.json`);
 
 if (!fs.existsSync(dataPath)) {
-    console.error(`❌ Data file not found: ${dataPath}`);
-    process.exit(1);
+  console.error(`❌ Data file not found: ${dataPath}`);
+  process.exit(1);
 }
 
 const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
 
 // Generate event cards HTML
 function generateEventCards(events) {
-    let html = '';
+  let html = '';
 
-    // Process events in pairs (2 per row)
-    for (let i = 0; i < events.length; i += 2) {
-        html += `
+  // Process events in pairs (2 per row)
+  for (let i = 0; i < events.length; i += 2) {
+    html += `
     <mj-section padding="0 10px 20px 10px" background-color="#080808">`;
 
-        // First event in row
-        html += generateEventColumn(events[i], i + 1);
+    // First event in row
+    html += generateEventColumn(events[i], i + 1);
 
-        // Second event in row (if exists)
-        if (events[i + 1]) {
-            html += generateEventColumn(events[i + 1], i + 2);
-        }
-
-        html += `
-    </mj-section>`;
+    // Second event in row (if exists)
+    if (events[i + 1]) {
+      html += generateEventColumn(events[i + 1], i + 2);
     }
 
-    return html;
+    html += `
+    </mj-section>`;
+  }
+
+  return html;
 }
 
 function generateEventColumn(event, index) {
-    return `
+  return `
       <mj-column width="50%" padding="10px">
         <mj-image 
             src="${event.image}" 
@@ -63,7 +63,7 @@ function generateEventColumn(event, index) {
 
 // Generate intro paragraphs
 function generateIntro(introArray) {
-    return introArray.map(text => `
+  return introArray.map(text => `
         <mj-text color="#cccccc" font-size="14px" padding-top="10px">
           ${text}
         </mj-text>`).join('');
@@ -182,8 +182,8 @@ const mjmlContent = `
       <mj-column>
         <mj-text align="center" color="#444444" font-size="10px" text-transform="uppercase" font-family="monospace">
           © ${data.year} Explores Berlin<br><br>
-          <a href="{{{ unsubscribe }}}" style="color:#666; text-decoration:none;">Unsubscribe</a> &nbsp;|&nbsp; 
-          <a href="{{{ mirror }}}" style="color:#666; text-decoration:none;">View in Browser</a> &nbsp;|&nbsp; 
+          <a href="{{ unsubscribe }}" style="color:#666; text-decoration:none;">Unsubscribe</a> &nbsp;|&nbsp; 
+          <a href="{{ mirror }}" style="color:#666; text-decoration:none;">View in Browser</a> &nbsp;|&nbsp; 
           <a href="https://explores-berlin.vercel.app/impressum" style="color:#666; text-decoration:none;">Impressum</a>
         </mj-text>
       </mj-column>
@@ -197,14 +197,14 @@ const mjmlContent = `
 const { html, errors } = mjml(mjmlContent, { validationLevel: 'soft' });
 
 if (errors.length > 0) {
-    console.warn('⚠️  MJML Warnings:');
-    errors.forEach(e => console.warn(`   - ${e.message}`));
+  console.warn('⚠️  MJML Warnings:');
+  errors.forEach(e => console.warn(`   - ${e.message}`));
 }
 
 // Save output
 const outputDir = path.join(__dirname, 'output');
 if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
+  fs.mkdirSync(outputDir, { recursive: true });
 }
 
 const outputPath = path.join(outputDir, `${weekArg}.html`);

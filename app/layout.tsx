@@ -26,7 +26,7 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-            <body className={`${inter.className} ${pressStart2P.variable} ${goldman.variable}`} suppressHydrationWarning>{children}</body>
+            <body className={`${goldman.className} ${pressStart2P.variable} ${goldman.variable}`} suppressHydrationWarning>{children}</body>
         </html>
     );
 }
