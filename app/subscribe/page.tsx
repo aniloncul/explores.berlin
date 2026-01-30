@@ -73,7 +73,7 @@ function SubscribeContent() {
                     <div className="flex items-center justify-center gap-1 mb-4">
                         {/* Left Bear - Faces Right (Default) */}
                         <img
-                            src="https://explores-berlin.vercel.app/disco-bear-sigil.png"
+                            src="https://explores-berlin.vercel.app/rave-bear-black.png"
                             alt="Bear Left"
                             className="h-24 w-auto object-contain"
                         />
@@ -86,7 +86,7 @@ function SubscribeContent() {
 
                         {/* Right Bear - Faces Left (Flipped) */}
                         <img
-                            src="https://explores-berlin.vercel.app/disco-bear-sigil.png"
+                            src="https://explores-berlin.vercel.app/rave-bear-black.png"
                             alt="Bear Right"
                             className="h-24 w-auto object-contain scale-x-[-1]"
                         />
