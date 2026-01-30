@@ -70,26 +70,27 @@ function SubscribeContent() {
                 {/* Logo / Brand */}
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 flex flex-col items-center">
 
-                    <div className="flex items-center justify-center gap-1 mb-4">
-                        {/* Left Bear - Faces Right (Default) */}
-                        <img
-                            src="https://explores-berlin.vercel.app/rave-bear-black.png"
-                            alt="Bear Left"
-                            className="h-24 w-auto object-contain"
-                        />
-
-                        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-center px-2">
+                    <div className="flex flex-col items-center justify-center mb-4">
+                        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-center px-2 mb-2">
                             <span className="bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent font-goldman">
-                                Explores.Berlin
+                                EXPLORES BERLIN
                             </span>
                         </h1>
 
-                        {/* Right Bear - Faces Left (Flipped) */}
-                        <img
-                            src="https://explores-berlin.vercel.app/rave-bear-black.png"
-                            alt="Bear Right"
-                            className="h-24 w-auto object-contain scale-x-[-1]"
-                        />
+                        <div className="flex items-center gap-4">
+                            {/* Left Bear - Faces Right (Default) */}
+                            <img
+                                src="https://explores-berlin.vercel.app/rave-bear-black.png"
+                                alt="Bear Left"
+                                className="h-24 w-auto object-contain"
+                            />
+                            {/* Right Bear - Faces Left (Flipped) */}
+                            <img
+                                src="https://explores-berlin.vercel.app/rave-bear-black.png"
+                                alt="Bear Right"
+                                className="h-24 w-auto object-contain scale-x-[-1]"
+                            />
+                        </div>
                     </div>
 
                     <p className="text-zinc-400 font-goldman text-sm">
