@@ -77,25 +77,25 @@ function SubscribeContent() {
                             </span>
                         </h1>
 
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
                             {/* Left Bear - Faces Right (Default) */}
                             <img
                                 src="https://explores-berlin.vercel.app/rave-bear-black.png"
                                 alt="Bear Left"
-                                className="h-24 w-auto object-contain"
+                                className="h-32 w-auto object-contain"
                             />
                             {/* Right Bear - Faces Left (Flipped) */}
                             <img
                                 src="https://explores-berlin.vercel.app/rave-bear-black.png"
                                 alt="Bear Right"
-                                className="h-24 w-auto object-contain scale-x-[-1]"
+                                className="h-32 w-auto object-contain scale-x-[-1]"
                             />
                         </div>
                     </div>
 
                     <p className="text-zinc-400 font-goldman text-sm">
-                        The unspoken guide to the city's underground.<br />
-                        <span className="text-rose-500/80">Raves. Culture. Secrets.</span>
+                        The actual Berliner experience.<br />
+                        <span className="text-rose-500/80">Discover the city's underground.</span>
                     </p>
                 </div>
 
