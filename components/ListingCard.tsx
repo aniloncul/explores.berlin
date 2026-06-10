@@ -12,11 +12,11 @@ interface ListingCardProps {
 
 const getBadgeColor = (text: string) => {
     const t = text.toLowerCase().replace(/[\[\]'"]/g, '');
-    if (t.includes('exhibition') || t.includes('ausstellung')) return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300";
-    if (t.includes('dining') || t.includes('essen')) return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300";
-    if (t.includes('+18')) return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300";
+    if (t === 'event') return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300";
+    if (t === 'restaurant') return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300";
+    if (t === 'bar') return "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300";
     if (t.includes('angebot') || t.includes('recommended')) return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300";
-    if (t.includes('event')) return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300";
+    if (t.includes('+18')) return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300";
 
     return "bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300";
 };
@@ -104,33 +104,16 @@ export default function ListingCard({ location }: ListingCardProps) {
             {/* Content */}
             <div className="flex flex-col gap-1">
                 <div className="flex items-start justify-between">
-                    <h3 className="font-semibold text-lg leading-tight text-gray-900 dark:text-white">
+                    <h3 className="font-semibold text-lg leading-tight text-[#b92626]">
                         {location.title}
                     </h3>
                 </div>
                 <p className="text-sm text-gray-500 line-clamp-2 dark:text-gray-400">
                     {location.description}
                 </p>
-                <div className="flex flex-wrap gap-2 mt-1">
-                    {location.mainCategory && location.mainCategory !== 'Recommended' && (
-                        <span className={twMerge("text-xs px-2 py-0.5 rounded-full font-medium", getBadgeColor(location.mainCategory))}>
-                            {location.mainCategory}
-                        </span>
-                    )}
-                    {(location.tags || []).map(tag => {
-                        const cleanTag = tag.replace(/[\[\]'"]/g, '');
-                        // If we want to map 'Recommended' -> 'Angebot' in display too?
-                        const displayTag = cleanTag === 'Recommended' ? 'Angebot' : cleanTag;
 
-                        return (
-                            <span key={tag} className={twMerge("text-xs px-2 py-0.5 rounded-full font-medium", getBadgeColor(displayTag))}>
-                                {displayTag}
-                            </span>
-                        );
-                    })}
-                </div>
                 <div className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-200">
-                    {new Date(location.startDate).toLocaleDateString()} - {new Date(location.endDate).toLocaleDateString()}
+
                 </div>
                 <p className="text-xs text-gray-400 dark:text-gray-500">
                     {location.address}

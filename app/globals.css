@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-rgb: 0, 0, 0;
+  --foreground-rgb: 24, 24, 27;
+  --background-rgb: 252, 250, 238;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: #000000;
+  background: #fcfaee;
 }
 
 /* Animations */

@@ -75,18 +75,38 @@ export default function Page() {
     }, []);
     */
 
-    // Extract unique categories
-    const allCategories = useMemo(() => {
-        const cats = new Set<string>();
-        locations.forEach(loc => {
-            if (loc.mainCategory && loc.mainCategory !== 'Recommended') {
-                const c = loc.mainCategory.trim();
-                // Ensure specific casing if needed, or just add the trimmed version
-                cats.add(c);
-            }
-        });
-        return Array.from(cats);
-    }, [locations]);
+    const allCategories = ["Bar", "Event", "Restaurant"];
+
+    // Helper to map any string or array to our 3 main categories
+    const mapToMainCategory = (catInput: string | string[] | undefined): string | null => {
+        if (!catInput) return null;
+        
+        // Convert to array if it's a string, then join to search within
+        const categories = Array.isArray(catInput) ? catInput : [catInput];
+        const combined = categories.join(' ').toLowerCase();
+
+        if (combined.includes('restaurant') || combined.includes('food') || combined.includes('sushi') || combined.includes('dining')) return 'Restaurant';
+        if (combined.includes('bar') || combined.includes('nightlife') || combined.includes('club')) return 'Bar';
+        if (combined.includes('event') || combined.includes('concert') || combined.includes('exhibition')) return 'Event';
+        
+        return null;
+    };
+
+    // Using mock data instead of Supabase (temporary solution)
+    useEffect(() => {
+        // Simulate loading delay for realistic UX
+        const timer = setTimeout(() => {
+            const mapped = mockLocations.map(loc => ({
+                ...loc,
+                // We use the 'category' field from mockLocations.ts as the source of truth
+                mainCategory: mapToMainCategory(loc.category) || loc.mainCategory
+            }));
+            setLocations(mapped);
+            console.log("Mock Data Loaded & Mapped:", { count: mapped.length });
+            setIsLoading(false);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, []);
 
     // Filter Logic
     const filteredLocations = useMemo(() => {
@@ -106,9 +126,11 @@ export default function Page() {
                 }
             }
 
-            // Category Filter
+            // Category Filter - Match against our 3 hardcoded categories
             if (activeCategories.length > 0) {
-                if (!loc.mainCategory || !activeCategories.includes(loc.mainCategory)) return false;
+                // Check if the location's mapped category is in the active filters
+                const mappedCat = mapToMainCategory(loc.category);
+                if (!mappedCat || !activeCategories.includes(mappedCat)) return false;
             }
 
             // Search Filter
@@ -129,7 +151,7 @@ export default function Page() {
     }, [filteredLocations, visibleLocationIds]);
 
     return (
-        <main className="flex h-screen w-full flex-col bg-black overflow-hidden pt-16">
+        <main className="flex h-screen w-full flex-col bg-[#fcfaee] overflow-hidden pt-16">
             {/* Navigation */}
             <Navigation />
 
