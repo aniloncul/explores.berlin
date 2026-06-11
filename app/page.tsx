@@ -17,7 +17,8 @@ export default function Page() {
     // as they are now managed locally based on the provided edit.
     const {
         dateFilter, setDateFilter,
-        activeCategories, toggleCategory
+        activeCategories, toggleCategory,
+        hoveredId, selectedId
     } = useMapStore();
 
     const [locations, setLocations] = useState<Location[]>([]);
@@ -229,10 +230,37 @@ export default function Page() {
                     </div>
                 </div>
 
-                {/* Right: Sticky Map (Hidden on mobile, shown on lg) */}
-                <div className="hidden lg:block lg:w-2/5 xl:w-[45%] h-full">
-                    <div className="h-full w-full p-6">
+                {/* Right: Sticky Map & Details */}
+                <div className="hidden lg:flex lg:w-2/5 xl:w-[45%] h-full flex-col">
+                    {/* Top: Map (70%) */}
+                    <div className="h-[70%] w-full p-6 pb-3">
                         <MapComponent filteredLocations={filteredLocations} onVisibleIdsChange={handleVisibleIdsChange} />
+                    </div>
+
+                    <div className="h-[30%] w-full p-6 pt-3 overflow-y-auto no-scrollbar">
+                        {(() => {
+                            const activeId = selectedId || hoveredId;
+                            const activeLocation = locations.find(l => l.id === activeId);
+                            if (activeLocation && activeLocation.detail) {
+                                return (
+                                    <div className="p-0 h-full overflow-y-auto no-scrollbar">
+                                        <h2 className="text-2xl font-semibold mb-3 text-[#b92626] uppercase tracking-tight">
+                                            {activeLocation.title}
+                                        </h2>
+                                        <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800 dark:text-gray-200">
+                                            {activeLocation.detail}
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div className="flex items-center justify-center h-full border-t border-black/10 dark:border-white/10">
+                                    <p className="text-gray-400 text-xs uppercase tracking-widest italic">
+                                        SELECT AN EVENT TO SEE DETAILS
+                                    </p>
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
 

@@ -14,4 +14,5 @@ export interface Location {
     highlight: boolean;
     mainCategory?: string;
     tags?: string[];
+    detail?: string;
 }

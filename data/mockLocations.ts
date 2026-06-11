@@ -16,7 +16,8 @@ export const mockLocations: Location[] = [
         images: ["https://www.qiez.de/app/uploads/2023/06/noumi-lounge-1-e1688046524135-750x422.jpg"],
         highlight: false,
         mainCategory: "Food & Drinks",
-        tags: ["Restaurant"]
+        tags: ["Restaurant"],
+        detail: "A stylish Asian spot to go this summer: NOUMì Sushi Lounge brings together colorful noodles, sushi, cocktails and a sleek lounge atmosphere in Berlin.🍸🍱\n\nIt works for a relaxed dinner, a cute date night or a summer evening with friends.\n\nThey also host Lumière Swing – Live Jazz & Dining on selected Sundays from 19:00–21:00: 14.06, 19.07 and 16.08. So if you catch one of those nights, even better. You can check their page for the latest details: @noumiberlin 💁🏼♀️\n\n📍NOUMì Sushi Lounge\nBundesallee 75\n12161 Berlin-Schöneberg\n\nEnjoy!🍜"
     },
     {
         id: "101",
@@ -30,7 +31,8 @@ export const mockLocations: Location[] = [
         images: ["https://www.qiez.de/app/uploads/2022/12/twb-titelbild-1-scaled-e1670856469827.jpeg"],
         highlight: true,
         mainCategory: "Nightlife",
-        tags: ["Bar"]
+        tags: ["Bar"],
+        detail: "Berlin’s Hidden Speakeasy Garden!🔥 One minute you’re outside, the next minute you’re wondering if you accidentally walked into somebody’s secret backyard cocktail world.\n\nThe Secret Garden by @thestoragebar keeps things hidden, intimate and built around an immersive cocktail experience where every drink plays with different senses.\n\nDefinitely not the usual “let’s grab a drink” kind of place. Limited time only, and Berlin’s good weather doesn’t wait around either. Enjoy!❤️🔥🤫"
     },
     {
         id: "102",
@@ -44,7 +46,8 @@ export const mockLocations: Location[] = [
         images: ["https://static.wixstatic.com/media/a35885_78c5cbe8b8244a0ab5b8648d7faaa265~mv2.jpg/v1/fit/w_2500,h_1330,al_c/a35885_78c5cbe8b8244a0ab5b8648d7faaa265~mv2.jpg"],
         highlight: false,
         mainCategory: "Culture",
-        tags: ["Bar", "Restaurant"]
+        tags: ["Bar", "Restaurant"],
+        detail: "The Oyster Social Club in Berlin is your new Sunday excuse for oysters, drinks and a little disco mood in Kreuzberg.🪩🦪\n\nEvery Sunday from 12:00 to 22:00, @oel.garten turns into an open-air oyster hangout with DJ sounds from house to disco, a 5€ entrance, and Fine de Claire oysters at seriously good prices: 3 pcs for 5€, 6 pcs for 9€, or 15 pcs for 15€.\n\nBook your spot via reservierung@oelgarten.com and find it at ŒL Garten, Schleusenufer 1, 10997 Berlin.\n\nEnjoy!❤️🔥"
     },
     {
         id: "103",
@@ -58,7 +61,8 @@ export const mockLocations: Location[] = [
         images: ["https://mitvergnuegen.com/wp-content/uploads/2017/07/yumcha-heroes.jpg"],
         highlight: false,
         mainCategory: "Food & Drinks",
-        tags: ["Restaurant"]
+        tags: ["Restaurant"],
+        detail: "Detailed information about this venue, including its history, special offers, and why it's a must-visit spot in Berlin."
     },
     {
         id: "104",
@@ -72,7 +76,8 @@ export const mockLocations: Location[] = [
         images: ["https://www.tip-berlin.de/wp-content/uploads/2026/01/daia-mariannerennella-c1.jpg"],
         highlight: true,
         mainCategory: "Food & Drinks",
-        tags: ["Restaurant"]
+        tags: ["Restaurant"],
+        detail: "Georgian-style brunch in Berlin: @daia_berlin 💛\n\nIt’s quickly become one of my favorite spots for Georgian food in the city.\nIt’s a cute, family-run restaurant with such a warm feeling - you can really tell the people behind it care. Everything feels simple, genuine, and made with love.\nThey serve brunch from Friday to Sunday, and if you’re curious about Georgian flavors or just want a cozy brunch that feels a bit different, this is a really nice one to try.🤌🏼"
     },
     {
         id: "105",
@@ -86,7 +91,8 @@ export const mockLocations: Location[] = [
         images: ["https://www.visitberlin.de/system/files/styles/visitberlin_hero_visitberlin_desktop_2x/private/image/Sphere_Tim_Raue_Tag_c_BERLINER_FERNSEHTURM_web.jpg.webp?itok=ZiybASxn"],
         highlight: true,
         mainCategory: "Food & Drinks",
-        tags: ["Restaurant"]
+        tags: ["Restaurant"],
+        detail: "Dinner with a rotating view over Berlin💛 The restaurant inside the TV Tower @berliner_fernsehturm - Sphere by Tim Raue - rotates 207 meters above the city, giving you a full 360° view as you sit.\n\nThe concept is led by Michelin-star chef Tim Raue, with a modern take on Berlin and Brandenburg classics.\n\nRight now it’s asparagus season in Germany, so there’s also a seasonal asparagus menu - perfect timing if you’re into local specialties. Enjoy!"
     },
     {
         id: "106",
@@ -100,7 +106,8 @@ export const mockLocations: Location[] = [
         images: ["https://dynamic-media-cdn.tripadvisor.com/media/photo-o/33/45/38/32/caption.jpg?w=1100&h=1100&s=1"],
         highlight: false,
         mainCategory: "Food & Drinks",
-        tags: ["Restaurant"]
+        tags: ["Restaurant"],
+        detail: "Craving bold tacos, spicy margaritas, and late-night vibes in Berlin? 🌮🔥\n\n@texmexico.berlin is your go-to Tex-Mex hotspot for juicy tacos, loaded nachos, cheesy quesadillas, and spicy margaritas for only €4.90 - all day, every day. 🍹❤️🔥\n\nLoud flavors, colorful plates, good music, and the kind of energy that turns “just one drink” into an unforgettable night. Whether you’re here for tacos with friends, margaritas after work, or a fun date-night spot, Tex Mexico brings the perfect mix of casual vibes and serious flavor. ✨🌶️\n\n📍 Falckensteinstraße 42 ,10997"
     },
     {
         id: "107",
@@ -114,7 +121,8 @@ export const mockLocations: Location[] = [
         images: ["https://images.squarespace-cdn.com/content/v1/69c946bfa950e2043da6fecf/f1353c29-bd0f-49b1-86a0-34354a789892/Berlin-Bar-Harrys.jpg"],
         highlight: false,
         mainCategory: "Nightlife",
-        tags: ["Event"]
+        tags: ["Event"],
+        detail: "Tucked inside the Sheraton Berlin Grand Hotel Esplanade, @harryslegacyberlin brings back the spirit of Harry’s New York Bar in a sharper, more current form.🥂 The old-school elegance is still there, but now with a mood that feels more Berlin: darker, quieter, more precise. A place for strong cocktails, low lights and the kind of evening that doesn’t need to be loud to leave an impression.❤️🔥🥂"
     },
     {
         id: "108",
@@ -128,7 +136,8 @@ export const mockLocations: Location[] = [
         images: ["https://sinatraberlin.de/cdn/shop/files/Sinatra_Night_Berlin.jpg?v=1778825640"],
         highlight: false,
         mainCategory: "Nightlife",
-        tags: ["Event"]
+        tags: ["Event"],
+        detail: "A Sinatra Dinner in Berlin by @sinatraberlin, taking place almost every Saturday at Hotel Palace. If you’re into Sinatra, live music, and good food, this is worth checking out."
     },
     {
         id: "109",
@@ -142,7 +151,8 @@ export const mockLocations: Location[] = [
         images: ["https://www.foodfactory-home.de/data/images/uploads/galerie/1003-1538_d_mamarosas-bild4-1.jpg"],
         highlight: false,
         mainCategory: "Food & Drinks",
-        tags: ["Restaurant"]
+        tags: ["Restaurant"],
+        detail: "📍Taqueria Mama Rosas ❤️🔥\n\n¡Buen provecho!"
     },
     {
         id: "110",
@@ -156,7 +166,8 @@ export const mockLocations: Location[] = [
         images: ["https://i.falstaff.com/storage/2025/12/shutterstock_2662142557.jpg?aspect_ratio=2:1&crop_gravity=middle?aspect_ratio=4:3"],
         highlight: false,
         mainCategory: "Events",
-        tags: ["Event"]
+        tags: ["Event"],
+        detail: "I went to @movie2menu ‘s Harry Potter night and it was such a fun twist on a rewatch. 🔮\nThe food and drinks arrive in sync with what’s happening on screen, so you’re basically eating the movie scene by scene. It made all the familiar moments feel new again, because you’re paying attention in a different way — not just to the film, but to the timing and the little details.🪄\nAlso, it’s not only Harry Potter: they rotate different movies and menus, so I’m keeping an eye on what they do next."
     },
     {
         id: "111",
@@ -170,6 +181,7 @@ export const mockLocations: Location[] = [
         images: ["https://www.berlinfoodstories.com/media/pages/map/happa/4ccf73380a-1764079658/happa-vegan-berlin-food-stories-restaurant-interior-x1000.jpg"],
         highlight: false,
         mainCategory: "Food & Drinks",
-        tags: ["Restaurant"]
+        tags: ["Restaurant"],
+        detail: "Vegan dining at @happa_restaurant with a colorful, lively setting and a seasonal 3-course menu 💚 A great spot for anyone looking for vegan food in Berlin with character, style, and a menu that changes with the season."
     }
 ];

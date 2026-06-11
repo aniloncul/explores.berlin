@@ -22,10 +22,11 @@ const getBadgeColor = (text: string) => {
 };
 
 export default function ListingCard({ location }: ListingCardProps) {
-    const { setHoveredId, hoveredId } = useMapStore();
+    const { setHoveredId, hoveredId, selectedId, setSelectedId } = useMapStore();
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
     const isHovered = hoveredId === location.id;
+    const isSelected = selectedId === location.id;
 
     const nextImage = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -43,17 +44,35 @@ export default function ListingCard({ location }: ListingCardProps) {
 
     const isRecommended = location.highlight;
 
+    const handleCardClick = () => {
+        if (isSelected) {
+            setSelectedId(null);
+        } else {
+            setSelectedId(location.id);
+        }
+    };
+
     return (
         <div
             className={twMerge(
-                "group relative flex flex-col gap-3 rounded-none p-3 transition-all duration-300 border-2",
-                isRecommended ? "border-yellow-400 bg-yellow-400/5 dark:bg-yellow-400/5" : "border-transparent hover:border-black dark:hover:border-white",
-                isHovered ? (isRecommended ? "bg-yellow-400/10" : "bg-gray-100 dark:bg-zinc-800") : "hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+                "group relative flex flex-col gap-3 rounded-none p-3 transition-all duration-300 border-2 cursor-pointer",
+                isSelected
+                    ? "border-purple-600 bg-purple-50 dark:bg-purple-900/10"
+                    : isRecommended
+                        ? "border-yellow-400 bg-yellow-400/5 dark:bg-yellow-400/5"
+                        : "border-transparent hover:border-black dark:hover:border-white",
+                isHovered && !isSelected ? (isRecommended ? "bg-yellow-400/10" : "bg-gray-100 dark:bg-zinc-800") : ""
             )}
             onMouseEnter={() => setHoveredId(location.id)}
             onMouseLeave={() => setHoveredId(null)}
+            onClick={handleCardClick}
         >
-            {isRecommended && (
+            {isSelected && (
+                <div className="absolute -top-3 -right-1 bg-purple-600 text-white px-2 py-1 text-[10px] font-bold uppercase border border-white shadow-[2px_2px_0px_0px_rgba(147,51,234,0.5)] z-20">
+                    Selected
+                </div>
+            )}
+            {!isSelected && isRecommended && (
                 <div className="absolute -top-3 -right-1 bg-yellow-400 text-black px-2 py-1 text-[10px] font-bold uppercase border border-black shadow-[2px_2px_0px_0px_black] z-20">
                     Recommended
                 </div>
