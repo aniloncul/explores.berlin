@@ -247,7 +247,7 @@ export default function Page() {
                                         <h2 className="text-2xl font-semibold mb-3 text-[#b92626] uppercase tracking-tight">
                                             {activeLocation.title}
                                         </h2>
-                                        <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800 dark:text-gray-200">
+                                        <div className="whitespace-pre-wrap text-sm leading-relaxed text-black dark:text-gray-100">
                                             {activeLocation.detail}
                                         </div>
                                     </div>
