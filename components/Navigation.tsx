@@ -5,15 +5,13 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 
-export default function Navigation() {
+interface NavigationProps {
+    onCreateEventClick?: () => void;
+}
+
+export default function Navigation({ onCreateEventClick }: NavigationProps) {
     const pathname = usePathname();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-    const links = [
-        { href: "/", label: "Home" },
-        { href: "/newsletter", label: "Newsletter" },
-        { href: "/contact", label: "Contact" },
-    ];
 
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md border-b border-zinc-800/50">
@@ -22,13 +20,8 @@ export default function Navigation() {
 
                     {/* Logo - Left */}
                     <Link href="/" className="flex items-center gap-3 group">
-                        <div className="relative">
-                            <img
-                                src="/nazli.jpg"
-                                alt="Explores Berlin"
-                                className="h-9 w-9 rounded-full object-cover ring-2 ring-zinc-700 group-hover:ring-rose-500 transition-all"
-                            />
-                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-rose-500 rounded-full border-2 border-black" />
+                        <div className="h-9 w-9 bg-rose-500 border-2 border-zinc-700 flex items-center justify-center font-black text-black font-mono shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] rounded-sm">
+                            EB
                         </div>
                         <div className="flex flex-col">
                             <span className="text-white font-bold text-lg tracking-tight leading-none">
@@ -41,25 +34,24 @@ export default function Navigation() {
                     </Link>
 
                     {/* Desktop Menu - Right */}
-                    <div className="hidden md:flex items-center gap-1">
-                        {links.map((link) => {
-                            const isActive = pathname === link.href;
-                            return (
-                                <Link
-                                    key={link.href}
-                                    href={link.href}
-                                    className={`relative px-4 py-2 text-sm font-medium uppercase tracking-wider transition-all duration-200 ${isActive
-                                        ? "text-white"
-                                        : "text-zinc-400 hover:text-white"
-                                        }`}
-                                >
-                                    {link.label}
-                                    {isActive && (
-                                        <span className="absolute bottom-0 left-4 right-4 h-0.5 bg-rose-500 rounded-full" />
-                                    )}
-                                </Link>
-                            );
-                        })}
+                    <div className="hidden md:flex items-center gap-4">
+                        <Link
+                            href="/"
+                            className={`px-4 py-2 text-sm font-medium uppercase tracking-wider transition-all duration-200 ${
+                                pathname === "/" ? "text-white" : "text-zinc-400 hover:text-white"
+                            }`}
+                        >
+                            Home
+                        </Link>
+                        
+                        {onCreateEventClick && (
+                            <button
+                                onClick={onCreateEventClick}
+                                className="px-4 py-2 text-xs font-bold uppercase tracking-wider bg-rose-500 text-black border-2 border-rose-500 hover:bg-black hover:text-rose-500 hover:border-rose-500 transition-all shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-mono"
+                            >
+                                Create Event
+                            </button>
+                        )}
                     </div>
 
                     {/* Mobile Menu Button */}
@@ -79,23 +71,30 @@ export default function Navigation() {
             {/* Mobile Menu Dropdown */}
             {mobileMenuOpen && (
                 <div className="md:hidden bg-black border-t border-zinc-800">
-                    <div className="px-6 py-4 space-y-1">
-                        {links.map((link) => {
-                            const isActive = pathname === link.href;
-                            return (
-                                <Link
-                                    key={link.href}
-                                    href={link.href}
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    className={`block px-4 py-3 text-sm font-medium uppercase tracking-wider transition-colors ${isActive
-                                        ? "text-white bg-zinc-900 border-l-2 border-rose-500"
-                                        : "text-zinc-400 hover:text-white hover:bg-zinc-900"
-                                        }`}
-                                >
-                                    {link.label}
-                                </Link>
-                            );
-                        })}
+                    <div className="px-6 py-4 space-y-2">
+                        <Link
+                            href="/"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`block px-4 py-3 text-sm font-medium uppercase tracking-wider transition-colors ${
+                                pathname === "/"
+                                    ? "text-white bg-zinc-900 border-l-2 border-rose-500"
+                                    : "text-zinc-400 hover:text-white hover:bg-zinc-900"
+                            }`}
+                        >
+                            Home
+                        </Link>
+                        
+                        {onCreateEventClick && (
+                            <button
+                                onClick={() => {
+                                    setMobileMenuOpen(false);
+                                    onCreateEventClick();
+                                }}
+                                className="w-full text-left block px-4 py-3 text-sm font-bold uppercase tracking-wider text-rose-500 hover:text-white hover:bg-zinc-900 border-l-2 border-transparent hover:border-rose-500"
+                            >
+                                Create Event
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

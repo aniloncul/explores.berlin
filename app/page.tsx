@@ -7,7 +7,7 @@ import { Location } from "@/types";
 import { useMapStore } from "@/store/useMapStore";
 import ListingCard from "@/components/ListingCard";
 import MapComponent from "@/components/Map";
-import { Calendar, Search } from "lucide-react";
+import { Calendar, Search, X } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import PixelTicker from "@/components/PixelTicker";
 import Navigation from "@/components/Navigation";
@@ -25,56 +25,135 @@ export default function Page() {
     const [searchQuery, setSearchQuery] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [visibleLocationIds, setVisibleLocationIds] = useState<string[] | null>(null);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+    const [formData, setFormData] = useState({
+        title: "",
+        category: [] as string[],
+        description: "",
+        address: "",
+        lat: 52.5200,
+        lng: 13.4050,
+        startDate: "",
+        endDate: "",
+        image: "",
+        highlight: false,
+        detail: "",
+        tags: ""
+    });
+
+    const handleFormSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        const newId = `custom-event-${Date.now()}`;
+        const newLocation: Location = {
+            id: newId,
+            title: formData.title,
+            category: formData.category,
+            description: formData.description,
+            address: formData.address,
+            coordinates: {
+                lat: Number(formData.lat) || 52.5200,
+                lng: Number(formData.lng) || 13.4050,
+            },
+            startDate: formData.startDate ? new Date(formData.startDate).toISOString() : new Date().toISOString(),
+            endDate: formData.endDate ? new Date(formData.endDate).toISOString() : new Date().toISOString(),
+            images: formData.image ? [formData.image] : [],
+            highlight: formData.highlight,
+            mainCategory: mapToMainCategory(formData.category) || formData.category[0] || "Event",
+            tags: formData.tags ? formData.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+            detail: formData.detail
+        };
+
+        try {
+            const res = await fetch("/api/locations", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(newLocation),
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.details || errorData.error || "Failed to save to database");
+            }
+
+            alert("Event successfully saved to PostgreSQL!");
+            setLocations(prev => [newLocation, ...prev]);
+        } catch (err: any) {
+            console.error("Database save failed:", err.message);
+            alert(`Database Save Warning: ${err.message}. The event was added to the temporary screen list for preview but could not be saved to PostgreSQL due to database permissions.`);
+            
+            // Still add locally for realistic UX/preview
+            setLocations(prev => [newLocation, ...prev]);
+        }
+        
+        // Reset form
+        setFormData({
+            title: "",
+            category: [],
+            description: "",
+            address: "",
+            lat: 52.5200,
+            lng: 13.4050,
+            startDate: "",
+            endDate: "",
+            image: "",
+            highlight: false,
+            detail: "",
+            tags: ""
+        });
+        setIsCreateModalOpen(false);
+    };
+
+    const handleCategoryCheckboxChange = (cat: string) => {
+        setFormData(prev => {
+            const exists = prev.category.includes(cat);
+            if (exists) {
+                return { ...prev, category: prev.category.filter(c => c !== cat) };
+            } else {
+                return { ...prev, category: [...prev.category, cat] };
+            }
+        });
+    };
 
     const handleVisibleIdsChange = useCallback((ids: string[]) => {
         setVisibleLocationIds(ids);
     }, []);
 
-    // Using mock data instead of Supabase (temporary solution)
+    // Fetch locations from PostgreSQL database with mock data fallback
     useEffect(() => {
-        // Simulate loading delay for realistic UX
-        const timer = setTimeout(() => {
-            setLocations(mockLocations);
-            console.log("Mock Data Loaded:", { count: mockLocations.length });
-            setIsLoading(false);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, []);
-
-    /* Original Supabase fetch - uncomment to restore
-    useEffect(() => {
-        async function fetchLocations() {
-            const { data, error } = await supabase.from('locations').select('*');
-            console.log("Supabase Fetch Debug:", { data: data, error: error, count: data?.length });
-
-            if (error) {
-                console.error('Error fetching locations:', error);
-                return;
-            }
-            if (data) {
-                const mapped: Location[] = data.map((loc: any) => {
-                    return {
-                        id: loc.id,
-                        title: loc.title,
-                        category: loc.category || [],
-                        description: loc.description,
-                        address: loc.address,
-                        coordinates: { lat: loc.lat, lng: loc.lng },
-                        startDate: loc.start_date,
-                        endDate: loc.end_date,
-                        images: loc.images || [],
-                        highlight: loc.highlight,
-                        mainCategory: loc.main_category,
-                        tags: loc.tags || []
-                    } as Location;
-                });
+        async function loadLocations() {
+            try {
+                const response = await fetch("/api/locations");
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (data && Array.isArray(data) && data.length > 0) {
+                    const mapped = data.map(loc => ({
+                        ...loc,
+                        mainCategory: mapToMainCategory(loc.category) || loc.mainCategory
+                    }));
+                    setLocations(mapped);
+                    console.log("Database Data Loaded & Mapped:", { count: mapped.length });
+                } else {
+                    throw new Error("No data returned or empty array");
+                }
+            } catch (err: any) {
+                console.warn("PostgreSQL connection/fetch failed (falling back to mock data):", err.message);
+                // Fallback to static mockLocations
+                const mapped = mockLocations.map(loc => ({
+                    ...loc,
+                    mainCategory: mapToMainCategory(loc.category) || loc.mainCategory
+                }));
                 setLocations(mapped);
+                console.log("Fallback Mock Data Loaded & Mapped:", { count: mapped.length });
+            } finally {
+                setIsLoading(false);
             }
-            setIsLoading(false);
         }
-        fetchLocations();
+        loadLocations();
     }, []);
-    */
 
     const allCategories = ["Bar", "Event", "Restaurant"];
 
@@ -92,22 +171,6 @@ export default function Page() {
         
         return null;
     };
-
-    // Using mock data instead of Supabase (temporary solution)
-    useEffect(() => {
-        // Simulate loading delay for realistic UX
-        const timer = setTimeout(() => {
-            const mapped = mockLocations.map(loc => ({
-                ...loc,
-                // We use the 'category' field from mockLocations.ts as the source of truth
-                mainCategory: mapToMainCategory(loc.category) || loc.mainCategory
-            }));
-            setLocations(mapped);
-            console.log("Mock Data Loaded & Mapped:", { count: mapped.length });
-            setIsLoading(false);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, []);
 
     // Filter Logic
     const filteredLocations = useMemo(() => {
@@ -154,7 +217,7 @@ export default function Page() {
     return (
         <main className="flex h-screen w-full flex-col bg-[#fcfaee] overflow-hidden pt-16">
             {/* Navigation */}
-            <Navigation />
+            <Navigation onCreateEventClick={() => setIsCreateModalOpen(true)} />
 
             {/* Content */}
             <div className="flex flex-1 overflow-hidden relative">
@@ -263,10 +326,204 @@ export default function Page() {
                         })()}
                     </div>
                 </div>
-
-                {/* Mobile Map Floating Action Button (Optional, if we hid the map) */}
-                {/* For now, simplified to desktop split as requested primarily. */}
             </div>
+
+            {/* Create Event Modal */}
+            {isCreateModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto">
+                    <div className="relative w-full max-w-2xl bg-[#fcfaee] border-4 border-black p-6 md:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] my-8">
+                        
+                        {/* Header */}
+                        <div className="flex items-center justify-between border-b-4 border-black pb-4 mb-6">
+                            <h2 className="text-2xl md:text-3xl font-black uppercase font-mono tracking-tight text-black flex items-center gap-2">
+                                <span className="bg-rose-500 text-black px-2 py-1 border-2 border-black text-lg md:text-xl">NEW</span>
+                                Create Berlin Event
+                            </h2>
+                            <button 
+                                onClick={() => setIsCreateModalOpen(false)}
+                                className="p-2 border-2 border-black bg-white hover:bg-black hover:text-white transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Form */}
+                        <form onSubmit={handleFormSubmit} className="space-y-5 font-mono text-xs">
+                            
+                            {/* Row 1: Title */}
+                            <div className="flex flex-col gap-1">
+                                <label className="font-bold text-black uppercase tracking-wider">Event Title*</label>
+                                <input 
+                                    type="text" 
+                                    required
+                                    value={formData.title}
+                                    onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                    placeholder="E.G. SYNC.D TECHNO NIGHT AT SPREEWALD"
+                                    className="border-2 border-black p-3 bg-white text-black outline-none focus:bg-[#fffdf4] text-sm uppercase"
+                                />
+                            </div>
+
+                            {/* Row 2: Categories Checkboxes */}
+                            <div className="flex flex-col gap-2">
+                                <label className="font-bold text-black uppercase tracking-wider">Categories* (Select at least one)</label>
+                                <div className="flex flex-wrap gap-4">
+                                    {allCategories.map(cat => (
+                                        <label key={cat} className="flex items-center gap-2 cursor-pointer select-none">
+                                            <input 
+                                                type="checkbox"
+                                                checked={formData.category.includes(cat)}
+                                                onChange={() => handleCategoryCheckboxChange(cat)}
+                                                className="w-4 h-4 accent-rose-500 cursor-pointer border-2 border-black"
+                                            />
+                                            <span className="font-bold text-black text-sm uppercase">{cat}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Row 3: Description */}
+                            <div className="flex flex-col gap-1">
+                                <label className="font-bold text-black uppercase tracking-wider">Description*</label>
+                                <textarea 
+                                    required
+                                    value={formData.description}
+                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                    placeholder="BRIEF ONE-LINE DESCRIPTION FOR GRID DISCOVERY"
+                                    rows={2}
+                                    className="border-2 border-black p-3 bg-white text-black outline-none focus:bg-[#fffdf4] text-sm"
+                                />
+                            </div>
+
+                            {/* Row 4: Address */}
+                            <div className="flex flex-col gap-1">
+                                <label className="font-bold text-black uppercase tracking-wider">Address*</label>
+                                <input 
+                                    type="text" 
+                                    required
+                                    value={formData.address}
+                                    onChange={e => setFormData({ ...formData, address: e.target.value })}
+                                    placeholder="E.G. REVALER STR. 99, 10245 BERLIN"
+                                    className="border-2 border-black p-3 bg-white text-black outline-none focus:bg-[#fffdf4] text-sm"
+                                />
+                            </div>
+
+                            {/* Row 5: Lat & Lng */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-black uppercase tracking-wider">Latitude*</label>
+                                    <input 
+                                        type="number" 
+                                        step="any"
+                                        required
+                                        value={formData.lat}
+                                        onChange={e => setFormData({ ...formData, lat: parseFloat(e.target.value) })}
+                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-black uppercase tracking-wider">Longitude*</label>
+                                    <input 
+                                        type="number" 
+                                        step="any"
+                                        required
+                                        value={formData.lng}
+                                        onChange={e => setFormData({ ...formData, lng: parseFloat(e.target.value) })}
+                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Row 6: Dates */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-black uppercase tracking-wider">Start Date*</label>
+                                    <input 
+                                        type="datetime-local" 
+                                        required
+                                        value={formData.startDate}
+                                        onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-black uppercase tracking-wider">End Date*</label>
+                                    <input 
+                                        type="datetime-local" 
+                                        required
+                                        value={formData.endDate}
+                                        onChange={e => setFormData({ ...formData, endDate: e.target.value })}
+                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Row 7: Image & Tags */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-black uppercase tracking-wider">Image URL / Path</label>
+                                    <input 
+                                        type="text" 
+                                        value={formData.image}
+                                        onChange={e => setFormData({ ...formData, image: e.target.value })}
+                                        placeholder="E.G. /images/event-one.jpg"
+                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-black uppercase tracking-wider">Tags (comma-separated)</label>
+                                    <input 
+                                        type="text" 
+                                        value={formData.tags}
+                                        onChange={e => setFormData({ ...formData, tags: e.target.value })}
+                                        placeholder="E.G. TECHNO, OUTDOOR, FREE ENTRY"
+                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm uppercase"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Row 8: Detail Text & Highlight Checkbox */}
+                            <div className="flex flex-col gap-1">
+                                <label className="font-bold text-black uppercase tracking-wider">Detail Text (Shown on selection)</label>
+                                <textarea 
+                                    value={formData.detail}
+                                    onChange={e => setFormData({ ...formData, detail: e.target.value })}
+                                    placeholder="LONG STORY / VIBE CARD FOR THE BOTTOM DETAIL SECTION..."
+                                    rows={3}
+                                    className="border-2 border-black p-3 bg-white text-black outline-none focus:bg-[#fffdf4] text-sm"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-2 py-1 select-none cursor-pointer">
+                                <input 
+                                    type="checkbox"
+                                    id="highlight-checkbox"
+                                    checked={formData.highlight}
+                                    onChange={e => setFormData({ ...formData, highlight: e.target.checked })}
+                                    className="w-4 h-4 accent-rose-500 border-2 border-black"
+                                />
+                                <label htmlFor="highlight-checkbox" className="font-bold text-black text-sm uppercase cursor-pointer">Highlight/Feature Event</label>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center justify-end gap-3 pt-4 border-t-2 border-black">
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsCreateModalOpen(false)}
+                                    className="px-5 py-3 border-2 border-black bg-white hover:bg-black hover:text-white transition-all font-bold text-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit"
+                                    className="px-5 py-3 border-2 border-black bg-rose-500 hover:bg-black hover:text-rose-500 hover:border-rose-500 transition-all font-bold text-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                                >
+                                    Add Event
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }
