@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "vault:harvest": "node scripts/vault/harvest.js",
+    "vault:doner": "node scripts/vault/harvest_doner.js",
     "migrate:bars": "node scripts/migrate_bars.js"
   },
   "keywords": [],

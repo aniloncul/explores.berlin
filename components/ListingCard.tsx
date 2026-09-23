@@ -13,7 +13,7 @@ interface ListingCardProps {
 const getBadgeColor = (text: string) => {
     const t = text.toLowerCase().replace(/[\[\]'"]/g, '');
     if (t === 'event') return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300";
-    if (t === 'restaurant') return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300";
+    if (t === 'restaurant' || t.includes('restaurant') || t.includes('kebab') || t.includes('döner') || t.includes('doner') || t.includes('turkish')) return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300";
     if (t === 'bar') return "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300";
     if (t.includes('angebot') || t.includes('recommended')) return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300";
     if (t.includes('+18')) return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300";
@@ -94,7 +94,9 @@ export default function ListingCard({ location }: ListingCardProps) {
                         <div className="flex flex-col items-center gap-2 text-violet-600 dark:text-violet-400">
                             <Martini className="w-10 h-10" />
                             <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">
-                                {location.subtype ? location.subtype.replace(/_/g, " ") : "Bar"}
+                                {location.subtype
+                                    ? location.subtype.replace(/_/g, " ")
+                                    : (location.mainCategory || "Bar")}
                             </span>
                         </div>
                     </div>

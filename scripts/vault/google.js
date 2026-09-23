@@ -50,14 +50,35 @@ async function googleGet(url) {
     return data;
 }
 
-async function placesTextSearch(query) {
+async function placesTextSearch(query, { pageToken = null } = {}) {
     const key = getApiKey();
     const url = new URL(PLACES_SEARCH);
     url.searchParams.set("query", query);
     url.searchParams.set("key", key);
     url.searchParams.set("language", "de");
     url.searchParams.set("region", "de");
+    if (pageToken) url.searchParams.set("pagetoken", pageToken);
     return googleGet(url.toString());
+}
+
+/** Page through Text Search (max 3 pages / 60 results per query). */
+async function placesTextSearchPaged(query, { maxPages = 3, delayMs = 200 } = {}) {
+    const all = [];
+    let pageToken = null;
+    let pages = 0;
+    do {
+        const res = await placesTextSearch(query, { pageToken });
+        const results = res.results || [];
+        all.push(...results);
+        pages++;
+        pageToken = res.next_page_token || null;
+        if (pageToken && pages < maxPages) {
+            await sleep(delayMs || 200);
+        } else {
+            pageToken = null;
+        }
+    } while (pageToken && pages < maxPages);
+    return { results: all, pages };
 }
 
 async function placesDetails(placeId) {
@@ -560,6 +581,7 @@ module.exports = {
     placesDetailsNew,
     placesNearby,
     placesTextSearch,
+    placesTextSearchPaged,
     normalize,
     extractStreet,
     parseWeekdayText,

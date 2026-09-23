@@ -159,6 +159,19 @@ export default function Page() {
                 console.warn("Bars fetch failed:", err.message);
             }
 
+            // Restaurants (places table, type=restaurant) — includes Döner/Kebab
+            try {
+                const response = await fetch("/api/restaurants");
+                if (response.ok) {
+                    const restaurants = await response.json();
+                    if (Array.isArray(restaurants)) {
+                        mapped.push(...restaurants);
+                    }
+                }
+            } catch (err: any) {
+                console.warn("Restaurants fetch failed:", err.message);
+            }
+
             if (mapped.length > 0) {
                 setLocations(mapped);
                 console.log("Data loaded:", { count: mapped.length });
@@ -176,7 +189,9 @@ export default function Page() {
         loadLocations();
     }, []);
 
-    const allCategories = ["Bar", "Event", "Restaurant"];
+    const FILTER_CATEGORIES = ["Beer", "Cocktail", "Döner"];
+    // Create-event form still uses classic place types
+    const EVENT_CATEGORIES = ["Bar", "Event", "Restaurant"];
 
     // Helper to map any string or array to our 3 main categories
     const mapToMainCategory = (catInput: string | string[] | undefined): string | null => {
@@ -193,17 +208,45 @@ export default function Page() {
         return null;
     };
 
-    // Base set after Bezirk + category (not bar subtype) — used for subtype counts & auto-reset
+    // Match a location against a Beer / Cocktail / Döner filter pill
+    const matchesFilterCategory = (loc: Location, cat: string): boolean => {
+        const subtype = (loc.subtype || loc.googlePrimaryType || "").toLowerCase();
+        const main = (loc.mainCategory || "").toLowerCase();
+        const cats = (loc.category || []).map(c => String(c).toLowerCase());
+        const tags = (loc.tags || []).map(t => String(t).toLowerCase());
+        const hay = [subtype, main, ...cats, ...tags].join(" ");
+
+        if (cat === "Döner") {
+            return /d[oö]ner|doner|kebab|kebap/.test(hay);
+        }
+        if (cat === "Beer") {
+            return (
+                subtype === "beer_garden" ||
+                subtype === "brewpub" ||
+                subtype === "brewery" ||
+                subtype === "pub" ||
+                subtype === "irish_pub" ||
+                subtype === "gastropub" ||
+                subtype === "sports_bar" ||
+                /\b(pub|beer|bier|brew)\b/.test(hay) ||
+                hay.includes("beer_garden") ||
+                hay.includes("brewpub")
+            );
+        }
+        if (cat === "Cocktail") {
+            return subtype === "cocktail_bar" || hay.includes("cocktail");
+        }
+        return true;
+    };
+
+    // Bar subtype options only count Bar locations within the current Bezirk
     const baseForBarSubtype = useMemo(() => {
         return locations.filter(loc => {
+            if (mapToMainCategory(loc.category) !== "Bar") return false;
             if (selectedBezirk !== "all" && loc.neighborhood !== selectedBezirk) return false;
-            if (activeCategories.length > 0) {
-                const mappedCat = mapToMainCategory(loc.category);
-                if (!mappedCat || !activeCategories.includes(mappedCat)) return false;
-            }
             return true;
         });
-    }, [locations, selectedBezirk, activeCategories]);
+    }, [locations, selectedBezirk]);
 
     const barSubtypeOptions = useMemo(() => {
         const counts = new Map<string, number>();
@@ -231,14 +274,17 @@ export default function Page() {
         if (!stillAvailable) setBarSubtype("all");
     }, [barSubtype, barSubtypeOptions]);
 
-    // Filter Logic — Bezirk AND bar subtype AND category (all can apply together)
+    // Filter Logic — Bezirk AND (bar subtype, bars only) AND Beer/Cocktail/Döner pills (OR)
     const filteredLocations = useMemo(() => {
         return locations.filter(loc => {
             if (selectedBezirk !== "all" && loc.neighborhood !== selectedBezirk) return false;
-            if (barSubtype !== "all" && loc.subtype !== barSubtype) return false;
+            if (barSubtype !== "all") {
+                const isBar = mapToMainCategory(loc.category) === "Bar";
+                if (isBar && loc.subtype !== barSubtype) return false;
+            }
             if (activeCategories.length > 0) {
-                const mappedCat = mapToMainCategory(loc.category);
-                if (!mappedCat || !activeCategories.includes(mappedCat)) return false;
+                const matchAny = activeCategories.some(c => matchesFilterCategory(loc, c));
+                if (!matchAny) return false;
             }
             return true;
         });
@@ -282,41 +328,39 @@ export default function Page() {
                             <span className="pointer-events-none absolute right-3 text-black dark:text-white text-xs">▼</span>
                         </div>
 
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                            {/* Bar subtype (Google primaryType) */}
-                            <div className="relative flex items-center gap-2 border-2 border-black bg-white px-4 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-black dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] w-full sm:w-auto">
-                                <select
-                                    className="bg-transparent text-sm font-bold uppercase outline-none text-black dark:text-white font-mono cursor-pointer w-full sm:w-auto pr-6 appearance-none"
-                                    value={barSubtype}
-                                    onChange={(e) => setBarSubtype(e.target.value)}
-                                    aria-label="Bar type"
+                        {/* Beer / Cocktail / Döner — between Bezirk and bar dropdown */}
+                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
+                            {FILTER_CATEGORIES.map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => toggleCategory(cat)}
+                                    className={twMerge(
+                                        "whitespace-nowrap px-4 py-2 text-xs font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-mono",
+                                        activeCategories.includes(cat)
+                                            ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
+                                            : "bg-white text-black border-black hover:bg-black hover:text-white dark:bg-black dark:text-white dark:border-white dark:hover:bg-white dark:hover:text-black"
+                                    )}
                                 >
-                                    {barSubtypeOptions.map(b => (
-                                        <option key={b.value} value={b.value} className="text-black bg-white">
-                                            {b.label}{b.value !== "all" ? ` (${b.n})` : ""}
-                                        </option>
-                                    ))}
-                                </select>
-                                <span className="pointer-events-none absolute right-3 text-black dark:text-white text-xs">▼</span>
-                            </div>
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
 
-                            {/* Categories */}
-                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
-                                {allCategories.map(cat => (
-                                    <button
-                                        key={cat}
-                                        onClick={() => toggleCategory(cat)}
-                                        className={twMerge(
-                                            "whitespace-nowrap px-4 py-2 text-xs font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-mono",
-                                            activeCategories.includes(cat)
-                                                ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
-                                                : "bg-white text-black border-black hover:bg-black hover:text-white dark:bg-black dark:text-white dark:border-white dark:hover:bg-white dark:hover:text-black"
-                                        )}
-                                    >
-                                        {cat === 'Recommended' ? 'Angebot' : cat.replace(/[\[\]'"]/g, '')}
-                                    </button>
+                        {/* Bar subtype (Google primaryType) */}
+                        <div className="relative flex items-center gap-2 border-2 border-black bg-white px-4 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-black dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] w-full sm:w-auto">
+                            <select
+                                className="bg-transparent text-sm font-bold uppercase outline-none text-black dark:text-white font-mono cursor-pointer w-full sm:w-auto pr-6 appearance-none"
+                                value={barSubtype}
+                                onChange={(e) => setBarSubtype(e.target.value)}
+                                aria-label="Bar type"
+                            >
+                                {barSubtypeOptions.map(b => (
+                                    <option key={b.value} value={b.value} className="text-black bg-white">
+                                        {b.label}{b.value !== "all" ? ` (${b.n})` : ""}
+                                    </option>
                                 ))}
-                            </div>
+                            </select>
+                            <span className="pointer-events-none absolute right-3 text-black dark:text-white text-xs">▼</span>
                         </div>
                     </div>
 
@@ -427,7 +471,7 @@ export default function Page() {
                             <div className="flex flex-col gap-2">
                                 <label className="font-bold text-black uppercase tracking-wider">Categories* (Select at least one)</label>
                                 <div className="flex flex-wrap gap-4">
-                                    {allCategories.map(cat => (
+                                    {EVENT_CATEGORIES.map(cat => (
                                         <label key={cat} className="flex items-center gap-2 cursor-pointer select-none">
                                             <input 
                                                 type="checkbox"
