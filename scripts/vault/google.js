@@ -20,6 +20,7 @@ const DETAIL_FIELDS = [
     "opening_hours",
     "price_level",
     "types",
+    "photos",
 ].join(",");
 
 function getApiKey() {
@@ -90,6 +91,33 @@ async function placesDetails(placeId) {
     url.searchParams.set("language", "de");
     url.searchParams.set("region", "de");
     return googleGet(url.toString());
+}
+
+/** Build a Place Photos (Legacy) URL for a photo_reference. */
+function placePhotoUrl(photoReference, { maxwidth = 800 } = {}) {
+    if (!photoReference) return null;
+    const key = getApiKey();
+    const url = new URL("https://maps.googleapis.com/maps/api/place/photo");
+    url.searchParams.set("photo_reference", photoReference);
+    url.searchParams.set("maxwidth", String(maxwidth));
+    url.searchParams.set("key", key);
+    return url.toString();
+}
+
+/** Download a Google place photo → Buffer. */
+async function downloadPlacePhoto(photoReference, { maxwidth = 800 } = {}) {
+    const url = placePhotoUrl(photoReference, { maxwidth });
+    const res = await fetch(url, {
+        signal: AbortSignal.timeout(30000),
+        redirect: "follow",
+    });
+    if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Photo HTTP ${res.status}: ${text.slice(0, 200)}`);
+    }
+    const buf = Buffer.from(await res.arrayBuffer());
+    const contentType = res.headers.get("content-type") || "image/jpeg";
+    return { buffer: buf, contentType };
 }
 
 /**
@@ -582,6 +610,8 @@ module.exports = {
     placesNearby,
     placesTextSearch,
     placesTextSearchPaged,
+    placePhotoUrl,
+    downloadPlacePhoto,
     normalize,
     extractStreet,
     parseWeekdayText,

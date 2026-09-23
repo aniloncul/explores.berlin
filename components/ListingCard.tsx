@@ -46,8 +46,6 @@ export default function ListingCard({ location }: ListingCardProps) {
         );
     };
 
-    const isRecommended = location.highlight;
-
     const handleCardClick = () => {
         if (isSelected) {
             setSelectedId(null);
@@ -62,10 +60,8 @@ export default function ListingCard({ location }: ListingCardProps) {
                 "group relative flex flex-col gap-3 rounded-none p-3 transition-all duration-300 border-2 cursor-pointer",
                 isSelected
                     ? "border-purple-600 bg-purple-50 dark:bg-purple-900/10"
-                    : isRecommended
-                        ? "border-yellow-400 bg-yellow-400/5 dark:bg-yellow-400/5"
-                        : "border-transparent hover:border-black dark:hover:border-white",
-                isHovered && !isSelected ? (isRecommended ? "bg-yellow-400/10" : "bg-gray-100 dark:bg-zinc-800") : ""
+                    : "border-transparent hover:border-black dark:hover:border-white",
+                isHovered && !isSelected ? "bg-gray-100 dark:bg-zinc-800" : ""
             )}
             onMouseEnter={() => setHoveredId(location.id)}
             onMouseLeave={() => setHoveredId(null)}
@@ -74,11 +70,6 @@ export default function ListingCard({ location }: ListingCardProps) {
             {isSelected && (
                 <div className="absolute -top-3 -right-1 bg-purple-600 text-white px-2 py-1 text-[10px] font-bold uppercase border border-white shadow-[2px_2px_0px_0px_rgba(147,51,234,0.5)] z-20">
                     Selected
-                </div>
-            )}
-            {!isSelected && isRecommended && (
-                <div className="absolute -top-3 -right-1 bg-yellow-400 text-black px-2 py-1 text-[10px] font-bold uppercase border border-black shadow-[2px_2px_0px_0px_black] z-20">
-                    Recommended
                 </div>
             )}
             {/* Image Carousel */}

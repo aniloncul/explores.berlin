@@ -26,7 +26,6 @@ export default function Page() {
 
     const [locations, setLocations] = useState<Location[]>([]);
     const [selectedBezirk, setSelectedBezirk] = useState("all");
-    const [barSubtype, setBarSubtype] = useState("all");
     const [isLoading, setIsLoading] = useState(true);
     const [visibleLocationIds, setVisibleLocationIds] = useState<string[] | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -239,60 +238,20 @@ export default function Page() {
         return true;
     };
 
-    // Bar subtype options only count Bar locations within the current Bezirk
-    const baseForBarSubtype = useMemo(() => {
-        return locations.filter(loc => {
-            if (mapToMainCategory(loc.category) !== "Bar") return false;
-            if (selectedBezirk !== "all" && loc.neighborhood !== selectedBezirk) return false;
-            return true;
-        });
-    }, [locations, selectedBezirk]);
-
-    const barSubtypeOptions = useMemo(() => {
-        const counts = new Map<string, number>();
-        let total = 0;
-        for (const loc of baseForBarSubtype) {
-            if (!loc.subtype) continue;
-            total++;
-            counts.set(loc.subtype, (counts.get(loc.subtype) || 0) + 1);
-        }
-        const list = [...counts.entries()]
-            .map(([value, n]) => ({
-                value,
-                label: value.replace(/_/g, " "),
-                n,
-            }))
-            .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
-        return [{ value: "all", label: "All bar types", n: total }, ...list];
-    }, [baseForBarSubtype]);
-
-    // If current subtype has no hits under this Bezirk/category, fall back to "all"
-    // so the two filters stay usable together.
-    useEffect(() => {
-        if (barSubtype === "all") return;
-        const stillAvailable = barSubtypeOptions.some(o => o.value === barSubtype && o.n > 0);
-        if (!stillAvailable) setBarSubtype("all");
-    }, [barSubtype, barSubtypeOptions]);
-
-    // Filter Logic — Bezirk AND (bar subtype, bars only) AND Beer/Cocktail/Döner pills (OR)
+    // Filter Logic — Bezirk AND Beer/Cocktail/Döner pills (OR)
     const filteredLocations = useMemo(() => {
         return locations.filter(loc => {
             if (selectedBezirk !== "all" && loc.neighborhood !== selectedBezirk) return false;
-            if (barSubtype !== "all") {
-                const isBar = mapToMainCategory(loc.category) === "Bar";
-                if (isBar && loc.subtype !== barSubtype) return false;
-            }
             if (activeCategories.length > 0) {
                 const matchAny = activeCategories.some(c => matchesFilterCategory(loc, c));
                 if (!matchAny) return false;
             }
             return true;
         });
-    }, [selectedBezirk, barSubtype, activeCategories, locations]);
+    }, [selectedBezirk, activeCategories, locations]);
 
     const clearAllFilters = () => {
         setSelectedBezirk("all");
-        setBarSubtype("all");
         activeCategories.forEach(c => toggleCategory(c));
     };
 
@@ -328,7 +287,7 @@ export default function Page() {
                             <span className="pointer-events-none absolute right-3 text-black dark:text-white text-xs">▼</span>
                         </div>
 
-                        {/* Beer / Cocktail / Döner — between Bezirk and bar dropdown */}
+                        {/* Beer / Cocktail / Döner */}
                         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
                             {FILTER_CATEGORIES.map(cat => (
                                 <button
@@ -344,23 +303,6 @@ export default function Page() {
                                     {cat}
                                 </button>
                             ))}
-                        </div>
-
-                        {/* Bar subtype (Google primaryType) */}
-                        <div className="relative flex items-center gap-2 border-2 border-black bg-white px-4 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-black dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] w-full sm:w-auto">
-                            <select
-                                className="bg-transparent text-sm font-bold uppercase outline-none text-black dark:text-white font-mono cursor-pointer w-full sm:w-auto pr-6 appearance-none"
-                                value={barSubtype}
-                                onChange={(e) => setBarSubtype(e.target.value)}
-                                aria-label="Bar type"
-                            >
-                                {barSubtypeOptions.map(b => (
-                                    <option key={b.value} value={b.value} className="text-black bg-white">
-                                        {b.label}{b.value !== "all" ? ` (${b.n})` : ""}
-                                    </option>
-                                ))}
-                            </select>
-                            <span className="pointer-events-none absolute right-3 text-black dark:text-white text-xs">▼</span>
                         </div>
                     </div>
 
@@ -383,8 +325,6 @@ export default function Page() {
                                         <p>No results for this selection.</p>
                                         <p className="text-xs uppercase tracking-widest opacity-70">
                                             Bezirk: {selectedBezirk === "all" ? "All" : selectedBezirk}
-                                            {" · "}
-                                            Bar type: {barSubtype === "all" ? "All" : barSubtype.replace(/_/g, " ")}
                                             {activeCategories.length > 0 ? ` · ${activeCategories.join(", ")}` : ""}
                                         </p>
                                         <button onClick={clearAllFilters} className="mt-1 text-rose-500 underline text-sm">

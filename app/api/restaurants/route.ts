@@ -29,10 +29,6 @@ function buildDetail(row: any): string {
 
 function toLocation(row: any): Location {
     const subtype = row.google_primary_type || null;
-    const cuisines = Array.isArray(row.cuisine) ? row.cuisine : [];
-    const isDoner =
-        cuisines.some((c: string) => /d[oö]ner|kebab|kebap/i.test(c)) ||
-        (Array.isArray(row.tags) && row.tags.some((t: string) => /d[oö]ner|kebab|kebap/i.test(t)));
 
     return {
         id: `rest-${row.slug}`,
@@ -46,8 +42,8 @@ function toLocation(row: any): Location {
         },
         startDate: "",
         endDate: "",
-        images: [],
-        highlight: isDoner,
+        images: Array.isArray(row.images) ? row.images : [],
+        highlight: false,
         mainCategory: "Restaurant",
         neighborhood: row.neighborhood || null,
         subtype,
@@ -72,7 +68,7 @@ export async function GET() {
                 price_range, website, phone, hours, opening_hours_raw,
                 google_place_id, google_name, google_rating, google_user_ratings_total,
                 google_types, google_primary_type, google_primary_type_display,
-                tags, cuisine, menu_md
+                tags, cuisine, menu_md, images
             FROM places
             WHERE type = 'restaurant'
               AND lat IS NOT NULL AND lng IS NOT NULL

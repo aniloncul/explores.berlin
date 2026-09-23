@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS places (
     source VARCHAR(50),
     source_id VARCHAR(255),
     menu_md TEXT,
+    images TEXT[] DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -70,6 +71,7 @@ CREATE TABLE IF NOT EXISTS places (
 ALTER TABLE places ADD COLUMN IF NOT EXISTS google_types TEXT[] DEFAULT '{}';
 ALTER TABLE places ADD COLUMN IF NOT EXISTS google_primary_type VARCHAR(100);
 ALTER TABLE places ADD COLUMN IF NOT EXISTS google_primary_type_display VARCHAR(100);
+ALTER TABLE places ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT '{}';
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_places_google_place_id
     ON places(google_place_id) WHERE google_place_id IS NOT NULL;
@@ -200,6 +202,7 @@ function toRow(note) {
         source: d.source || null,
         source_id: d.source_id || null,
         menu_md: menuMd,
+        images: Array.isArray(d.images) ? d.images : [],
     };
 }
 
@@ -210,14 +213,14 @@ INSERT INTO places (
     hours, opening_hours_raw,
     google_place_id, google_name, google_verified, google_rating, google_user_ratings_total,
     google_types, google_primary_type, google_primary_type_display,
-    source, source_id, menu_md
+    source, source_id, menu_md, images
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7,
     $8, $9, $10, $11, $12, $13,
     $14::jsonb, $15,
     $16, $17, $18, $19, $20,
     $21::text[], $22, $23,
-    $24, $25, $26
+    $24, $25, $26, $27::text[]
 )
 ON CONFLICT (slug) DO UPDATE SET
     name = EXCLUDED.name,
@@ -245,6 +248,7 @@ ON CONFLICT (slug) DO UPDATE SET
     source = EXCLUDED.source,
     source_id = EXCLUDED.source_id,
     menu_md = EXCLUDED.menu_md,
+    images = EXCLUDED.images,
     updated_at = NOW()
 `;
 
@@ -282,6 +286,7 @@ async function main() {
                     row.google_place_id, row.google_name, row.google_verified, row.google_rating, row.google_user_ratings_total,
                     row.google_types, row.google_primary_type, row.google_primary_type_display,
                     row.source, row.source_id, row.menu_md,
+                    row.images,
                 ]);
                 if (wasUpdate) updated++; else inserted++;
             } catch (e) {

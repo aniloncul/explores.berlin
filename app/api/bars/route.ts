@@ -38,7 +38,7 @@ function toLocation(row: any): Location {
         },
         startDate: "",
         endDate: "",
-        images: [],
+        images: Array.isArray(row.images) ? row.images : [],
         highlight: false,
         mainCategory: "Bar",
         neighborhood: row.neighborhood || null,
@@ -63,7 +63,7 @@ export async function GET() {
                 price_range, website, phone, hours, opening_hours_raw,
                 google_place_id, google_name, google_rating, google_user_ratings_total,
                 google_types, google_primary_type, google_primary_type_display,
-                tags, cuisine, menu_md
+                tags, cuisine, menu_md, images
             FROM places
             WHERE type = 'bar'
                OR (google_primary_type = 'beer_garden' AND type IN ('restaurant', 'cafe'))

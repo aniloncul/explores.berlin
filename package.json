@@ -9,6 +9,7 @@
     "lint": "next lint",
     "vault:harvest": "node scripts/vault/harvest.js",
     "vault:doner": "node scripts/vault/harvest_doner.js",
+    "vault:images": "node scripts/vault/fetch_images.js --photos 1",
     "migrate:bars": "node scripts/migrate_bars.js"
   },
   "keywords": [],

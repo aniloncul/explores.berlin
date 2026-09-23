@@ -29,7 +29,7 @@ export const mockLocations: Location[] = [
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         images: ["https://www.qiez.de/app/uploads/2022/12/twb-titelbild-1-scaled-e1670856469827.jpeg"],
-        highlight: true,
+        highlight: false,
         mainCategory: "Nightlife",
         tags: ["Bar"],
         detail: "Berlin’s Hidden Speakeasy Garden!🔥 One minute you’re outside, the next minute you’re wondering if you accidentally walked into somebody’s secret backyard cocktail world.\n\nThe Secret Garden by @thestoragebar keeps things hidden, intimate and built around an immersive cocktail experience where every drink plays with different senses.\n\nDefinitely not the usual “let’s grab a drink” kind of place. Limited time only, and Berlin’s good weather doesn’t wait around either. Enjoy!❤️🔥🤫"
@@ -74,7 +74,7 @@ export const mockLocations: Location[] = [
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         images: ["https://www.tip-berlin.de/wp-content/uploads/2026/01/daia-mariannerennella-c1.jpg"],
-        highlight: true,
+        highlight: false,
         mainCategory: "Food & Drinks",
         tags: ["Restaurant"],
         detail: "Georgian-style brunch in Berlin: @daia_berlin 💛\n\nIt’s quickly become one of my favorite spots for Georgian food in the city.\nIt’s a cute, family-run restaurant with such a warm feeling - you can really tell the people behind it care. Everything feels simple, genuine, and made with love.\nThey serve brunch from Friday to Sunday, and if you’re curious about Georgian flavors or just want a cozy brunch that feels a bit different, this is a really nice one to try.🤌🏼"
@@ -89,7 +89,7 @@ export const mockLocations: Location[] = [
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         images: ["https://www.visitberlin.de/system/files/styles/visitberlin_hero_visitberlin_desktop_2x/private/image/Sphere_Tim_Raue_Tag_c_BERLINER_FERNSEHTURM_web.jpg.webp?itok=ZiybASxn"],
-        highlight: true,
+        highlight: false,
         mainCategory: "Food & Drinks",
         tags: ["Restaurant"],
         detail: "Dinner with a rotating view over Berlin💛 The restaurant inside the TV Tower @berliner_fernsehturm - Sphere by Tim Raue - rotates 207 meters above the city, giving you a full 360° view as you sit.\n\nThe concept is led by Michelin-star chef Tim Raue, with a modern take on Berlin and Brandenburg classics.\n\nRight now it’s asparagus season in Germany, so there’s also a seasonal asparagus menu - perfect timing if you’re into local specialties. Enjoy!"

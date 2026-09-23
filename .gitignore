@@ -34,3 +34,6 @@ yarn-error.log*
 next-env.d.ts
 Anil Oncul passport.jpg
 *.csv
+
+# place cover photos (Google downloads — not for commit)
+/public/images/places/
