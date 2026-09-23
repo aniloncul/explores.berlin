@@ -7,22 +7,26 @@ import { Location } from "@/types";
 import { useMapStore } from "@/store/useMapStore";
 import ListingCard from "@/components/ListingCard";
 import MapComponent from "@/components/Map";
-import { Calendar, Search, X } from "lucide-react";
+import { X, MapPin } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import PixelTicker from "@/components/PixelTicker";
 import Navigation from "@/components/Navigation";
+import areas from "../scripts/vault/areas.json";
+
+const BEZIRKE = [
+    { value: "all", label: "All Bezirke" },
+    ...Object.values(areas).map((a) => ({ value: a.slug, label: a.label })),
+];
 
 export default function Page() {
-    // Removed dateFilter and activeCategories from useMapStore destructuring
-    // as they are now managed locally based on the provided edit.
     const {
-        dateFilter, setDateFilter,
         activeCategories, toggleCategory,
         hoveredId, selectedId
     } = useMapStore();
 
     const [locations, setLocations] = useState<Location[]>([]);
-    const [searchQuery, setSearchQuery] = useState("");
+    const [selectedBezirk, setSelectedBezirk] = useState("all");
+    const [barSubtype, setBarSubtype] = useState("all");
     const [isLoading, setIsLoading] = useState(true);
     const [visibleLocationIds, setVisibleLocationIds] = useState<string[] | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -120,9 +124,12 @@ export default function Page() {
         setVisibleLocationIds(ids);
     }, []);
 
-    // Fetch locations from PostgreSQL database with mock data fallback
+    // Fetch locations (events) + bars from PostgreSQL with mock data fallback
     useEffect(() => {
         async function loadLocations() {
+            const mapped: Location[] = [];
+
+            // Events (existing locations table)
             try {
                 const response = await fetch("/api/locations");
                 if (!response.ok) {
@@ -130,27 +137,41 @@ export default function Page() {
                 }
                 const data = await response.json();
                 if (data && Array.isArray(data) && data.length > 0) {
-                    const mapped = data.map(loc => ({
+                    mapped.push(...data.map(loc => ({
                         ...loc,
                         mainCategory: mapToMainCategory(loc.category) || loc.mainCategory
-                    }));
-                    setLocations(mapped);
-                    console.log("Database Data Loaded & Mapped:", { count: mapped.length });
-                } else {
-                    throw new Error("No data returned or empty array");
+                    })));
                 }
             } catch (err: any) {
-                console.warn("PostgreSQL connection/fetch failed (falling back to mock data):", err.message);
+                console.warn("PostgreSQL locations fetch failed:", err.message);
+            }
+
+            // Bars (places table, type=bar)
+            try {
+                const response = await fetch("/api/bars");
+                if (response.ok) {
+                    const bars = await response.json();
+                    if (Array.isArray(bars)) {
+                        mapped.push(...bars);
+                    }
+                }
+            } catch (err: any) {
+                console.warn("Bars fetch failed:", err.message);
+            }
+
+            if (mapped.length > 0) {
+                setLocations(mapped);
+                console.log("Data loaded:", { count: mapped.length });
+            } else {
                 // Fallback to static mockLocations
-                const mapped = mockLocations.map(loc => ({
+                const fallback = mockLocations.map(loc => ({
                     ...loc,
                     mainCategory: mapToMainCategory(loc.category) || loc.mainCategory
                 }));
-                setLocations(mapped);
-                console.log("Fallback Mock Data Loaded & Mapped:", { count: mapped.length });
-            } finally {
-                setIsLoading(false);
+                setLocations(fallback);
+                console.log("Fallback mock data loaded:", { count: fallback.length });
             }
+            setIsLoading(false);
         }
         loadLocations();
     }, []);
@@ -160,7 +181,7 @@ export default function Page() {
     // Helper to map any string or array to our 3 main categories
     const mapToMainCategory = (catInput: string | string[] | undefined): string | null => {
         if (!catInput) return null;
-        
+
         // Convert to array if it's a string, then join to search within
         const categories = Array.isArray(catInput) ? catInput : [catInput];
         const combined = categories.join(' ').toLowerCase();
@@ -168,46 +189,66 @@ export default function Page() {
         if (combined.includes('restaurant') || combined.includes('food') || combined.includes('sushi') || combined.includes('dining')) return 'Restaurant';
         if (combined.includes('bar') || combined.includes('nightlife') || combined.includes('club')) return 'Bar';
         if (combined.includes('event') || combined.includes('concert') || combined.includes('exhibition')) return 'Event';
-        
+
         return null;
     };
 
-    // Filter Logic
-    const filteredLocations = useMemo(() => {
+    // Base set after Bezirk + category (not bar subtype) — used for subtype counts & auto-reset
+    const baseForBarSubtype = useMemo(() => {
         return locations.filter(loc => {
-            // Date Filter
-            if (dateFilter) {
-                if (loc.startDate) {
-                    const start = new Date(loc.startDate);
-                    const end = new Date(loc.endDate);
-                    // Check if selected date is strictly within range (inclusive)
-                    const d = new Date(dateFilter);
-                    d.setHours(0, 0, 0, 0);
-                    start.setHours(0, 0, 0, 0);
-                    end.setHours(0, 0, 0, 0);
-
-                    if (d < start || d > end) return false;
-                }
-            }
-
-            // Category Filter - Match against our 3 hardcoded categories
+            if (selectedBezirk !== "all" && loc.neighborhood !== selectedBezirk) return false;
             if (activeCategories.length > 0) {
-                // Check if the location's mapped category is in the active filters
                 const mappedCat = mapToMainCategory(loc.category);
                 if (!mappedCat || !activeCategories.includes(mappedCat)) return false;
             }
-
-            // Search Filter
-            if (searchQuery) {
-                const q = searchQuery.toLowerCase();
-                const title = (loc.title || '').toLowerCase();
-                const desc = (loc.description || '').toLowerCase();
-                if (!title.includes(q) && !desc.includes(q)) return false;
-            }
-
             return true;
         });
-    }, [dateFilter, activeCategories, locations, searchQuery]);
+    }, [locations, selectedBezirk, activeCategories]);
+
+    const barSubtypeOptions = useMemo(() => {
+        const counts = new Map<string, number>();
+        let total = 0;
+        for (const loc of baseForBarSubtype) {
+            if (!loc.subtype) continue;
+            total++;
+            counts.set(loc.subtype, (counts.get(loc.subtype) || 0) + 1);
+        }
+        const list = [...counts.entries()]
+            .map(([value, n]) => ({
+                value,
+                label: value.replace(/_/g, " "),
+                n,
+            }))
+            .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+        return [{ value: "all", label: "All bar types", n: total }, ...list];
+    }, [baseForBarSubtype]);
+
+    // If current subtype has no hits under this Bezirk/category, fall back to "all"
+    // so the two filters stay usable together.
+    useEffect(() => {
+        if (barSubtype === "all") return;
+        const stillAvailable = barSubtypeOptions.some(o => o.value === barSubtype && o.n > 0);
+        if (!stillAvailable) setBarSubtype("all");
+    }, [barSubtype, barSubtypeOptions]);
+
+    // Filter Logic — Bezirk AND bar subtype AND category (all can apply together)
+    const filteredLocations = useMemo(() => {
+        return locations.filter(loc => {
+            if (selectedBezirk !== "all" && loc.neighborhood !== selectedBezirk) return false;
+            if (barSubtype !== "all" && loc.subtype !== barSubtype) return false;
+            if (activeCategories.length > 0) {
+                const mappedCat = mapToMainCategory(loc.category);
+                if (!mappedCat || !activeCategories.includes(mappedCat)) return false;
+            }
+            return true;
+        });
+    }, [selectedBezirk, barSubtype, activeCategories, locations]);
+
+    const clearAllFilters = () => {
+        setSelectedBezirk("all");
+        setBarSubtype("all");
+        activeCategories.forEach(c => toggleCategory(c));
+    };
 
     const displayLocations = useMemo(() => {
         if (!visibleLocationIds) return filteredLocations;
@@ -224,47 +265,58 @@ export default function Page() {
                 {/* Left: Scrollable Grid */}
                 <div className="w-full lg:w-3/5 xl:w-[55%] h-full overflow-y-auto no-scrollbar p-4 sm:p-6 pb-32 scroll-smooth">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6">
-                        {/* Date Picker */}
-                        {/* Date Picker - Techno Style */}
-                        <div className="relative flex items-center gap-2 border-2 border-black bg-white px-4 py-2 hover:bg-black hover:text-white group dark:border-white dark:bg-black dark:text-white dark:hover:bg-white dark:hover:text-black transition-colors w-full sm:w-auto shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none">
-                            <Calendar className="h-4 w-4 group-hover:text-white dark:group-hover:text-black transition-colors" />
-                            <input
-                                type="date"
-                                className="bg-transparent text-sm font-bold uppercase outline-none text-inherit w-full cursor-pointer placeholder-inherit font-mono"
-                                value={dateFilter ? new Date(dateFilter.getTime() - dateFilter.getTimezoneOffset() * 60000).toISOString().split('T')[0] : ''}
-                                onChange={(e) => setDateFilter(e.target.valueAsDate)}
-                            />
+                        {/* Bezirk Picker */}
+                        <div className="relative flex items-center gap-2 border-2 border-black bg-white px-4 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-black dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] w-full sm:w-auto">
+                            <MapPin className="h-4 w-4 text-black dark:text-white shrink-0" />
+                            <select
+                                className="bg-transparent text-sm font-bold uppercase outline-none text-black dark:text-white font-mono cursor-pointer w-full sm:w-auto pr-6 appearance-none"
+                                value={selectedBezirk}
+                                onChange={(e) => setSelectedBezirk(e.target.value)}
+                            >
+                                {BEZIRKE.map(b => (
+                                    <option key={b.value} value={b.value} className="text-black bg-white">
+                                        {b.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <span className="pointer-events-none absolute right-3 text-black dark:text-white text-xs">▼</span>
                         </div>
 
-                        {/* Search Bar */}
-                        {/* Search Bar - Techno Style */}
-                        <div className="relative flex items-center gap-2 border-2 border-black bg-white px-4 py-2 w-full sm:w-auto flex-1 max-w-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-black dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
-                            <Search className="h-4 w-4 text-black dark:text-white" />
-                            <input
-                                type="text"
-                                placeholder="SEARCH EVENTS..."
-                                className="bg-transparent text-sm font-bold outline-none text-black dark:text-white placeholder-gray-500 w-full uppercase font-mono"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
-
-                        {/* Categories */}
-                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
-                            {allCategories.map(cat => (
-                                <button
-                                    key={cat}
-                                    onClick={() => toggleCategory(cat)}
-                                    className={twMerge(
-                                        "whitespace-nowrap px-4 py-2 text-xs font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-mono",
-                                        activeCategories.includes(cat)
-                                            ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
-                                            : "bg-white text-black border-black hover:bg-black hover:text-white dark:bg-black dark:text-white dark:border-white dark:hover:bg-white dark:hover:text-black"
-                                    )}
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                            {/* Bar subtype (Google primaryType) */}
+                            <div className="relative flex items-center gap-2 border-2 border-black bg-white px-4 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-black dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] w-full sm:w-auto">
+                                <select
+                                    className="bg-transparent text-sm font-bold uppercase outline-none text-black dark:text-white font-mono cursor-pointer w-full sm:w-auto pr-6 appearance-none"
+                                    value={barSubtype}
+                                    onChange={(e) => setBarSubtype(e.target.value)}
+                                    aria-label="Bar type"
                                 >
-                                    {cat === 'Recommended' ? 'Angebot' : cat.replace(/[\[\]'"]/g, '')}
-                                </button>
-                            ))}
+                                    {barSubtypeOptions.map(b => (
+                                        <option key={b.value} value={b.value} className="text-black bg-white">
+                                            {b.label}{b.value !== "all" ? ` (${b.n})` : ""}
+                                        </option>
+                                    ))}
+                                </select>
+                                <span className="pointer-events-none absolute right-3 text-black dark:text-white text-xs">▼</span>
+                            </div>
+
+                            {/* Categories */}
+                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
+                                {allCategories.map(cat => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => toggleCategory(cat)}
+                                        className={twMerge(
+                                            "whitespace-nowrap px-4 py-2 text-xs font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-mono",
+                                            activeCategories.includes(cat)
+                                                ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
+                                                : "bg-white text-black border-black hover:bg-black hover:text-white dark:bg-black dark:text-white dark:border-white dark:hover:bg-white dark:hover:text-black"
+                                        )}
+                                    >
+                                        {cat === 'Recommended' ? 'Angebot' : cat.replace(/[\[\]'"]/g, '')}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
@@ -283,9 +335,17 @@ export default function Page() {
                                     <ListingCard key={loc.id} location={loc} />
                                 ))}
                                 {displayLocations.length === 0 && (
-                                    <div className="col-span-full py-12 flex flex-col items-center justify-center text-center text-gray-500 dark:text-zinc-500">
-                                        <p>No events found for this date.</p>
-                                        <button onClick={() => setDateFilter(null)} className="mt-2 text-rose-500 underline text-sm">Clear filter</button>
+                                    <div className="col-span-full py-12 flex flex-col items-center justify-center gap-3 text-gray-500 dark:text-zinc-500 text-center">
+                                        <p>No results for this selection.</p>
+                                        <p className="text-xs uppercase tracking-widest opacity-70">
+                                            Bezirk: {selectedBezirk === "all" ? "All" : selectedBezirk}
+                                            {" · "}
+                                            Bar type: {barSubtype === "all" ? "All" : barSubtype.replace(/_/g, " ")}
+                                            {activeCategories.length > 0 ? ` · ${activeCategories.join(", ")}` : ""}
+                                        </p>
+                                        <button onClick={clearAllFilters} className="mt-1 text-rose-500 underline text-sm">
+                                            Clear all filters
+                                        </button>
                                     </div>
                                 )}
                             </>

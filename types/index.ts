@@ -15,4 +15,7 @@ export interface Location {
     mainCategory?: string;
     tags?: string[];
     detail?: string;
+    neighborhood?: string | null;
+    subtype?: string | null;
+    googlePrimaryType?: string | null;
 }

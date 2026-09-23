@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Location } from "@/types";
 import { useMapStore } from "@/store/useMapStore";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Martini } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 
 interface ListingCardProps {
@@ -17,6 +17,10 @@ const getBadgeColor = (text: string) => {
     if (t === 'bar') return "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300";
     if (t.includes('angebot') || t.includes('recommended')) return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300";
     if (t.includes('+18')) return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300";
+    if (t.includes('cocktail') || t.includes('wine')) return "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300";
+    if (t.includes('pub') || t.includes('beer') || t.includes('brew')) return "bg-lime-100 dark:bg-lime-900/30 text-lime-700 dark:text-lime-300";
+    if (t.includes('sport')) return "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300";
+    if (t.includes('night') || t.includes('club')) return "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300";
 
     return "bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300";
 };
@@ -79,11 +83,22 @@ export default function ListingCard({ location }: ListingCardProps) {
             )}
             {/* Image Carousel */}
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-gray-200 dark:bg-zinc-700">
-                <img
-                    src={location.images[currentImageIndex]}
-                    alt={location.title}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
+                {location.images.length > 0 ? (
+                    <img
+                        src={location.images[currentImageIndex]}
+                        alt={location.title}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                ) : (
+                    <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-violet-500/15 via-gray-100 to-pink-500/15 dark:from-violet-500/20 dark:via-zinc-800 dark:to-pink-500/20">
+                        <div className="flex flex-col items-center gap-2 text-violet-600 dark:text-violet-400">
+                            <Martini className="w-10 h-10" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">
+                                {location.subtype ? location.subtype.replace(/_/g, " ") : "Bar"}
+                            </span>
+                        </div>
+                    </div>
+                )}
 
                 {/* Removed duplicate Recommended badge - using only yellow corner badge */}
 
@@ -122,10 +137,18 @@ export default function ListingCard({ location }: ListingCardProps) {
 
             {/* Content */}
             <div className="flex flex-col gap-1">
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold text-lg leading-tight text-[#b92626]">
                         {location.title}
                     </h3>
+                    {location.subtype && (
+                        <span className={twMerge(
+                            "shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase border border-black dark:border-white font-mono",
+                            getBadgeColor(location.subtype.replace(/_/g, " "))
+                        )}>
+                            {location.subtype.replace(/_/g, " ")}
+                        </span>
+                    )}
                 </div>
                 <p className="text-sm text-gray-500 line-clamp-2 dark:text-gray-400">
                     {location.description}

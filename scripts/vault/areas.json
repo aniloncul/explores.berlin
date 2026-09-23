@@ -1,0 +1,62 @@
+{
+  "kreuzberg": {
+    "label": "Kreuzberg",
+    "slug": "kreuzberg",
+    "comment": "Approximate Ortsteil Kreuzberg (61+62) bbox — refine after visual check",
+    "bbox": [52.4700, 13.3800, 52.5150, 13.4450]
+  },
+  "neukoelln": {
+    "label": "Neukölln",
+    "slug": "neukoelln",
+    "comment": "Approximate Ortsteil Neukölln bbox (excludes Britz/Rudow/Gropiusstadt) — refine after visual check",
+    "bbox": [52.4400, 13.3950, 52.4900, 13.4650]
+  },
+  "mitte": {
+    "label": "Mitte",
+    "slug": "mitte",
+    "comment": "Approximate Bezirk Mitte bbox (Mitte, Moabit, Wedding, Hansaviertel, Tiergarten, Gesundbrunnen) — refine after visual check",
+    "bbox": [52.5050, 13.3350, 52.5700, 13.4350]
+  },
+  "lichtenberg": {
+    "label": "Lichtenberg",
+    "slug": "lichtenberg",
+    "comment": "Approximate Bezirk Lichtenberg bbox (Lichtenberg, Friedrichsfelde, Karlshorst, Fichtenau, northern parts) — refine after visual check",
+    "bbox": [52.4850, 13.4450, 52.5450, 13.5550]
+  },
+  "pankow": {
+    "label": "Pankow",
+    "slug": "pankow",
+    "comment": "Approximate Bezirk Pankow bbox (Pankow, Prenzlauer Berg, Weißensee, Buch, Karow, Wittenau, etc.) — refine after visual check",
+    "bbox": [52.5150, 13.3700, 52.5900, 13.4800]
+  },
+  "schoneberg": {
+    "label": "Schöneberg",
+    "slug": "schoneberg",
+    "comment": "Approximate Ortsteil Schöneberg bbox — refine after visual check",
+    "bbox": [52.4600, 13.3250, 52.5050, 13.3900]
+  },
+  "charlottenburg": {
+    "label": "Charlottenburg",
+    "slug": "charlottenburg",
+    "comment": "Approximate Ortsteil Charlottenburg bbox — refine after visual check",
+    "bbox": [52.4900, 13.2950, 52.5300, 13.3550]
+  },
+  "steglitz-zehlendorf": {
+    "label": "Steglitz-Zehlendorf",
+    "slug": "steglitz-zehlendorf",
+    "comment": "Approximate Bezirk Steglitz-Zehlendorf bbox (Steglitz, Zehlendorf, Dahlem, Lichterfelde, Wannsee, etc.) — refine after visual check",
+    "bbox": [52.4050, 13.1600, 52.4700, 13.3200]
+  },
+  "treptow-koepenick": {
+    "label": "Treptow-Köpenick",
+    "slug": "treptow-koepenick",
+    "comment": "Approximate Bezirk Treptow-Köpenick bbox (Treptow, Köpenick, Adlershof, Friedrichshagen, Müggelheim, etc.) — refine after visual check",
+    "bbox": [52.3550, 13.4350, 52.5000, 13.6550]
+  },
+  "reinickendorf": {
+    "label": "Reinickendorf",
+    "slug": "reinickendorf",
+    "comment": "Approximate Bezirk Reinickendorf bbox (Reinickendorf, Tegel, Hermsdorf, Heiligensee, Lübars, etc.) — refine after visual check",
+    "bbox": [52.5450, 13.2850, 52.6150, 13.4100]
+  }
+}
