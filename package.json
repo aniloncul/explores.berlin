@@ -10,7 +10,8 @@
     "vault:harvest": "node scripts/vault/harvest.js",
     "vault:doner": "node scripts/vault/harvest_doner.js",
     "vault:images": "node scripts/vault/fetch_images.js --photos 1",
-    "migrate:bars": "node scripts/migrate_bars.js"
+    "migrate:bars": "node scripts/migrate_bars.js",
+    "covers:store": "node scripts/store_place_covers.js"
   },
   "keywords": [],
   "author": "",
@@ -27,7 +28,8 @@
     "pg": "^8.22.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
-    "tailwind-merge": "^3.4.0",
+    "sharp": "^0.34.5",
+    "tailwind-merge": "^3.4.10",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
