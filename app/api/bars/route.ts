@@ -33,6 +33,17 @@ function cleanHours(hours: any): Record<string, string> | null {
     return Object.keys(out).length ? out : null;
 }
 
+/** Disk photo paths 404 on Vercel (gitignored) — rewrite to cover API. */
+function normalizeImages(row: any): string[] {
+    const imgs = Array.isArray(row.images) ? row.images : [];
+    if (!imgs.length) return [];
+    const cover = `/api/places/cover/${row.slug}`;
+    return imgs.map((img: any) => {
+        if (typeof img === "string" && img.startsWith("/images/places/")) return cover;
+        return img;
+    });
+}
+
 function toLocation(row: any): Location {
     const subtype = row.google_primary_type || null;
     return {
@@ -47,7 +58,7 @@ function toLocation(row: any): Location {
         },
         startDate: "",
         endDate: "",
-        images: Array.isArray(row.images) ? row.images : [],
+        images: normalizeImages(row),
         highlight: false,
         mainCategory: "Bar",
         neighborhood: row.neighborhood || null,

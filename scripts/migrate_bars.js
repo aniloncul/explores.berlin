@@ -189,6 +189,24 @@ function toRow(note) {
 
     const menuMd = extractSection(note.content, "Menu");
 
+    // Disk paths (/images/places/...) are gitignored and 404 on Vercel.
+    // Always serve covers from Postgres via the cover API when present.
+    let images = Array.isArray(d.images) ? d.images : [];
+    const hasDiskPath = images.some(
+        (img) => typeof img === "string" && img.startsWith("/images/places/")
+    );
+    const hasCoverApi = images.some(
+        (img) => typeof img === "string" && img.startsWith("/api/places/cover/")
+    );
+    if (hasDiskPath || !hasCoverApi) {
+        const coverPath = `/api/places/cover/${slug}`;
+        images = [
+            coverPath,
+            ...images.filter((img) => typeof img === "string" && img.startsWith("/api/places/cover/") && img !== coverPath),
+        ];
+        if (!images.length) images = [];
+    }
+
     return {
         slug,
         name,
@@ -216,7 +234,7 @@ function toRow(note) {
         source: d.source || null,
         source_id: d.source_id || null,
         menu_md: menuMd,
-        images: Array.isArray(d.images) ? d.images : [],
+        images,
     };
 }
 

@@ -19,16 +19,16 @@ export const useMapStore = create<MapState>((set) => ({
     setHoveredId: (id) => set({ hoveredId: id }),
     setSelectedId: (id) => set({ selectedId: id }),
     setDateFilter: (date) => set({ dateFilter: date }),
+    // Single-select: Beer / Cocktail / Döner cannot be active together
     toggleCategory: (category) =>
         set((state) => {
             if (state.activeCategories.includes(category)) {
+                // clicking active pill turns it off (show all)
                 return {
                     activeCategories: state.activeCategories.filter((c) => c !== category),
                 };
-            } else {
-                return {
-                    activeCategories: [...state.activeCategories, category],
-                };
             }
+            // only one at a time
+            return { activeCategories: [category] };
         }),
 }));
