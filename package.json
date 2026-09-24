@@ -10,6 +10,7 @@
     "vault:harvest": "node scripts/vault/harvest.js",
     "vault:doner": "node scripts/vault/harvest_doner.js",
     "vault:images": "node scripts/vault/fetch_images.js --photos 1",
+    "vault:menus": "node scripts/vault/menus_from_images.js",
     "migrate:bars": "node scripts/migrate_bars.js",
     "covers:store": "node scripts/store_place_covers.js"
   },

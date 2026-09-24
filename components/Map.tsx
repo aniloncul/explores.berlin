@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import { useEffect, useState } from "react";
+import { formatPrice } from "@/lib/menu";
 
 interface MapProps {
     filteredLocations: Location[];
@@ -92,6 +93,10 @@ export default function MapComponent({ filteredLocations, onVisibleIdsChange }: 
                         const isHovered = hoveredId === location.id;
                         const isSelected = selectedId === location.id;
                         const isActive = isHovered || isSelected;
+                        const showPrice =
+                            location.lowestPrice != null &&
+                            Number.isFinite(location.lowestPrice) &&
+                            location.lowestPrice > 0;
 
                         // Determine Color & Icon based on categories and tags
                         let bgColor = "#6B7280"; // gray-500 default
@@ -107,7 +112,7 @@ export default function MapComponent({ filteredLocations, onVisibleIdsChange }: 
                         } else if (t.includes('culture') || t.includes('exhibition') || t.includes('ausstellung')) {
                             bgColor = "#06B6D4"; // cyan-500
                             IconComponent = Palette;
-                        } else if (t.includes('food') || t.includes('dining') || t.includes('essen') || t.includes('restaurant')) {
+                        } else if (t.includes('food') || t.includes('dining') || t.includes('essen') || t.includes('restaurant') || t.includes('döner') || t.includes('doner') || t.includes('kebab')) {
                             bgColor = "#F59E0B"; // amber-500
                             IconComponent = Utensils;
                         } else if (t.includes('cafe') || t.includes('coffee')) {
@@ -123,6 +128,14 @@ export default function MapComponent({ filteredLocations, onVisibleIdsChange }: 
                             bgColor = "#D946EF"; // fuchsia-500
                             IconComponent = Calendar;
                         }
+
+                        // Price badges are always blue; category color only for icon pins
+                        const pinBg = showPrice
+                            ? (isSelected ? "#0284C7" : "#38BDF8") // sky-600 / sky-400
+                            : (isSelected ? "#9333ea" : bgColor);
+                        const pinText = showPrice
+                            ? (isSelected ? "#0284C7" : "#38BDF8")
+                            : (isSelected ? "#9333ea" : bgColor);
 
                         return (
                             <AdvancedMarker
@@ -140,43 +153,64 @@ export default function MapComponent({ filteredLocations, onVisibleIdsChange }: 
                                     {isActive && (
                                         <div className={twMerge(
                                             "absolute bottom-full mb-3 w-max max-w-[200px] text-white text-[10px] font-bold px-2 py-1 shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] z-[60] pointer-events-none text-center uppercase tracking-tighter",
-                                            isSelected ? "bg-purple-600" : "bg-black"
+                                            isSelected ? "bg-sky-600" : showPrice ? "bg-sky-400" : "bg-black"
                                         )}>
                                             {location.title}
+                                            {showPrice && (
+                                                <div className="mt-0.5 font-mono">
+                                                    {formatPrice(location.lowestPrice as number)} €
+                                                </div>
+                                            )}
                                             <div className={twMerge(
                                                 "absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent",
-                                                isSelected ? "border-t-purple-600" : "border-t-black"
+                                                isSelected || showPrice ? "border-t-sky-600" : "border-t-black"
                                             )} />
                                         </div>
                                     )}
-                                    
+
                                     {/* Custom Pin Design */}
-                                    <div 
+                                    <div
                                         className={twMerge(
                                             "relative transition-all duration-300 ease-out flex items-center justify-center rounded-full border-2 shadow-lg",
-                                            isSelected ? "border-purple-600 ring-2 ring-white" : "border-white",
-                                            isActive ? "w-10 h-10 -translate-y-1 scale-110" : "w-7 h-7"
+                                            isSelected ? "border-sky-600 ring-2 ring-white" : "border-white",
+                                            showPrice
+                                                ? isActive
+                                                    ? "w-12 h-12 -translate-y-1 scale-110"
+                                                    : "w-9 h-9"
+                                                : isActive
+                                                    ? "w-10 h-10 -translate-y-1 scale-110"
+                                                    : "w-7 h-7"
                                         )}
-                                        style={{ 
-                                            backgroundColor: isSelected ? "#9333ea" : bgColor,
-                                            boxShadow: isActive ? `0 0 15px ${isSelected ? "#9333ea" : bgColor}` : '0 2px 4px rgba(0,0,0,0.3)'
+                                        style={{
+                                            backgroundColor: pinBg,
+                                            boxShadow: isActive ? `0 0 15px ${pinBg}` : '0 2px 4px rgba(0,0,0,0.3)'
                                         }}
                                     >
-                                        <IconComponent 
-                                            className={twMerge(
-                                                "text-white transition-all",
-                                                isActive ? "w-5 h-5" : "w-3.5 h-3.5"
-                                            )} 
-                                        />
-                                        
+                                        {showPrice ? (
+                                            <span
+                                                className={twMerge(
+                                                    "font-bold font-mono leading-none text-white",
+                                                    isActive ? "text-[11px]" : "text-[9px]"
+                                                )}
+                                            >
+                                                {formatPrice(location.lowestPrice as number)}
+                                            </span>
+                                        ) : (
+                                            <IconComponent
+                                                className={twMerge(
+                                                    "text-white transition-all",
+                                                    isActive ? "w-5 h-5" : "w-3.5 h-3.5"
+                                                )}
+                                            />
+                                        )}
                                         {/* Pin Tail */}
-                                        <div 
+                                        <div
                                             className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-t-[6px] border-x-[5px] border-x-transparent"
-                                            style={{ borderTopColor: isSelected ? "#9333ea" : 'white' }}
+                                            style={{ borderTopColor: isSelected || showPrice ? "#0284C7" : 'white' }}
                                         />
-                                        <div 
+                                        <div
                                             className="absolute top-full left-1/2 -translate-x-1/2 -mt-[5px] border-t-[4px] border-x-[4px] border-x-transparent"
-                                            style={{ borderTopColor: isSelected ? "#9333ea" : bgColor }}
+                                            style={{ borderTopColor: pinText }}
                                         />
                                     </div>
                                 </div>

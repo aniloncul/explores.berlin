@@ -15,13 +15,22 @@ function buildDescription(row: any): string {
 
 function buildDetail(row: any): string {
     const lines: string[] = [];
-    if (row.opening_hours_raw) lines.push(`Hours: ${row.opening_hours_raw}`);
     if (row.website) lines.push(`Website: ${row.website}`);
     if (row.phone) lines.push(`Phone: ${row.phone}`);
     if (row.address) lines.push(`Address: ${row.address}`);
     if (row.price_range) lines.push(`Price: ${row.price_range}`);
     if (row.google_primary_type_display) lines.push(`Type: ${row.google_primary_type_display}`);
     return lines.join("\n");
+}
+
+function cleanHours(hours: any): Record<string, string> | null {
+    if (!hours || typeof hours !== "object") return null;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(hours)) {
+        if (v == null || v === "") continue;
+        out[k] = String(v);
+    }
+    return Object.keys(out).length ? out : null;
 }
 
 function toLocation(row: any): Location {
@@ -51,6 +60,10 @@ function toLocation(row: any): Location {
             ...(Array.isArray(row.tags) ? row.tags : []),
         ].filter(Boolean),
         detail: buildDetail(row),
+        menuMd: row.menu_md || null,
+        lowestPrice: null,
+        hours: cleanHours(row.hours),
+        openingHoursRaw: row.opening_hours_raw || null,
     };
 }
 

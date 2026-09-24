@@ -6,10 +6,10 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 
 interface NavigationProps {
-    onCreateEventClick?: () => void;
+    onReportMenuClick?: () => void;
 }
 
-export default function Navigation({ onCreateEventClick }: NavigationProps) {
+export default function Navigation({ onReportMenuClick }: NavigationProps) {
     const pathname = usePathname();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -44,12 +44,12 @@ export default function Navigation({ onCreateEventClick }: NavigationProps) {
                             Home
                         </Link>
                         
-                        {onCreateEventClick && (
+                        {onReportMenuClick && (
                             <button
-                                onClick={onCreateEventClick}
+                                onClick={onReportMenuClick}
                                 className="px-4 py-2 text-xs font-bold uppercase tracking-wider bg-rose-500 text-black border-2 border-rose-500 hover:bg-black hover:text-rose-500 hover:border-rose-500 transition-all shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-mono"
                             >
-                                Create Event
+                                Report Menu Fix
                             </button>
                         )}
                     </div>
@@ -84,15 +84,15 @@ export default function Navigation({ onCreateEventClick }: NavigationProps) {
                             Home
                         </Link>
                         
-                        {onCreateEventClick && (
+                        {onReportMenuClick && (
                             <button
                                 onClick={() => {
                                     setMobileMenuOpen(false);
-                                    onCreateEventClick();
+                                    onReportMenuClick();
                                 }}
                                 className="w-full text-left block px-4 py-3 text-sm font-bold uppercase tracking-wider text-rose-500 hover:text-white hover:bg-zinc-900 border-l-2 border-transparent hover:border-rose-500"
                             >
-                                Create Event
+                                Report Menu Fix
                             </button>
                         )}
                     </div>

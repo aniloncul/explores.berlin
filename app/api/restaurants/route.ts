@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { Location } from "@/types";
+import { lowestDonerPrice } from "@/lib/menu";
 
 function buildDescription(row: any): string {
     const parts: string[] = [];
@@ -16,7 +17,6 @@ function buildDescription(row: any): string {
 
 function buildDetail(row: any): string {
     const lines: string[] = [];
-    if (row.opening_hours_raw) lines.push(`Hours: ${row.opening_hours_raw}`);
     if (row.website) lines.push(`Website: ${row.website}`);
     if (row.phone) lines.push(`Phone: ${row.phone}`);
     if (row.address) lines.push(`Address: ${row.address}`);
@@ -25,6 +25,16 @@ function buildDetail(row: any): string {
     const cuisines = Array.isArray(row.cuisine) ? row.cuisine : [];
     if (cuisines.length) lines.push(`Cuisine: ${cuisines.join(", ")}`);
     return lines.join("\n");
+}
+
+function cleanHours(hours: any): Record<string, string> | null {
+    if (!hours || typeof hours !== "object") return null;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(hours)) {
+        if (v == null || v === "") continue;
+        out[k] = String(v);
+    }
+    return Object.keys(out).length ? out : null;
 }
 
 function toLocation(row: any): Location {
@@ -56,6 +66,10 @@ function toLocation(row: any): Location {
             ...(Array.isArray(row.tags) ? row.tags : []),
         ].filter(Boolean),
         detail: buildDetail(row),
+        menuMd: row.menu_md || null,
+        lowestPrice: lowestDonerPrice(row.menu_md),
+        hours: cleanHours(row.hours),
+        openingHoursRaw: row.opening_hours_raw || null,
     };
 }
 

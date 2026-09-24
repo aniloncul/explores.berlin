@@ -159,6 +159,23 @@ function collectNotes(type) {
     return notes;
 }
 
+function extractSection(content, heading) {
+    const lines = String(content || "").split(/\r?\n/);
+    let start = -1;
+    let end = lines.length;
+    for (let i = 0; i < lines.length; i++) {
+        if (start < 0) {
+            if (new RegExp(`^##\\s+${heading}\\b`).test(lines[i])) start = i + 1;
+        } else if (/^##\s+/.test(lines[i])) {
+            end = i;
+            break;
+        }
+    }
+    if (start < 0) return null;
+    const body = lines.slice(start, end).join("\n").trim();
+    return body || null;
+}
+
 function toRow(note) {
     const d = note.data;
     const slug = d.slug || path.basename(note.file, ".md");
@@ -170,10 +187,7 @@ function toRow(note) {
     const tags = Array.isArray(d.tags) ? d.tags : [];
     const googleTypes = Array.isArray(d.google_types) ? d.google_types : [];
 
-    // Extract ## Menu section body if present (for future menu_md use)
-    let menuMd = null;
-    const menuMatch = note.content.match(/^## Menu\s*\n([\s\S]*?)(?=\n## |$)/m);
-    if (menuMatch) menuMd = menuMatch[1].trim();
+    const menuMd = extractSection(note.content, "Menu");
 
     return {
         slug,

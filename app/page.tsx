@@ -13,6 +13,56 @@ import PixelTicker from "@/components/PixelTicker";
 import Navigation from "@/components/Navigation";
 import areas from "../scripts/vault/areas.json";
 
+import { parseMenuMd, formatPrice } from "@/lib/menu";
+
+const DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+const DAY_LABELS: Record<string, string> = {
+    mon: "Monday",
+    tue: "Tuesday",
+    wed: "Wednesday",
+    thu: "Thursday",
+    fri: "Friday",
+    sat: "Saturday",
+    sun: "Sunday",
+};
+
+function formatDayHours(value: string): string {
+    const v = String(value || "").trim();
+    if (!v || /^(closed|geschlossen|gesloten)$/i.test(v)) return "Closed";
+    return v.replace(/–/g, "-");
+}
+
+function parseRawHoursList(raw: string): { day: string; hours: string }[] | null {
+    if (!raw) return null;
+    // "Montag: 09:00–21:00 Uhr; Dienstag: ..."
+    const map: Record<string, string> = {
+        Montag: "mon",
+        Dienstag: "tue",
+        Mittwoch: "wed",
+        Donnerstag: "thu",
+        Freitag: "fri",
+        Samstag: "sat",
+        Sonntag: "sun",
+        Monday: "mon",
+        Tuesday: "tue",
+        Wednesday: "wed",
+        Thursday: "thu",
+        Friday: "fri",
+        Saturday: "sat",
+        Sunday: "sun",
+    };
+    const parts = raw.split(/;\s*/);
+    const out: { day: string; hours: string }[] = [];
+    for (const p of parts) {
+        const m = p.match(/^([A-Za-zäöüÄÖÜ]+):\s*(.+)$/);
+        if (!m) continue;
+        const day = map[m[1]] || map[m[1][0].toUpperCase() + m[1].slice(1).toLowerCase()];
+        if (!day) continue;
+        out.push({ day, hours: m[2].replace(/\s*Uhr\s*$/i, "").trim() });
+    }
+    return out.length ? out : null;
+}
+
 const BEZIRKE = [
     { value: "all", label: "All Bezirke" },
     ...Object.values(areas).map((a) => ({ value: a.slug, label: a.label })),
@@ -25,98 +75,101 @@ export default function Page() {
     } = useMapStore();
 
     const [locations, setLocations] = useState<Location[]>([]);
-    const [selectedBezirk, setSelectedBezirk] = useState("all");
+    const [selectedBezirk, setSelectedBezirk] = useState("kreuzberg");
     const [isLoading, setIsLoading] = useState(true);
     const [visibleLocationIds, setVisibleLocationIds] = useState<string[] | null>(null);
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-    const [formData, setFormData] = useState({
-        title: "",
-        category: [] as string[],
-        description: "",
-        address: "",
-        lat: 52.5200,
-        lng: 13.4050,
-        startDate: "",
-        endDate: "",
-        image: "",
-        highlight: false,
-        detail: "",
-        tags: ""
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [reportStatus, setReportStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+    const [reportError, setReportError] = useState("");
+    const [reportForm, setReportForm] = useState({
+        placeTitle: "",
+        placeSlug: "",
+        message: "",
+        email: "",
     });
+    const [reportImage, setReportImage] = useState<File | null>(null);
+    const [reportImagePreview, setReportImagePreview] = useState<string | null>(null);
 
-    const handleFormSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        
-        const newId = `custom-event-${Date.now()}`;
-        const newLocation: Location = {
-            id: newId,
-            title: formData.title,
-            category: formData.category,
-            description: formData.description,
-            address: formData.address,
-            coordinates: {
-                lat: Number(formData.lat) || 52.5200,
-                lng: Number(formData.lng) || 13.4050,
-            },
-            startDate: formData.startDate ? new Date(formData.startDate).toISOString() : new Date().toISOString(),
-            endDate: formData.endDate ? new Date(formData.endDate).toISOString() : new Date().toISOString(),
-            images: formData.image ? [formData.image] : [],
-            highlight: formData.highlight,
-            mainCategory: mapToMainCategory(formData.category) || formData.category[0] || "Event",
-            tags: formData.tags ? formData.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
-            detail: formData.detail
-        };
-
-        try {
-            const res = await fetch("/api/locations", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(newLocation),
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.details || errorData.error || "Failed to save to database");
-            }
-
-            alert("Event successfully saved to PostgreSQL!");
-            setLocations(prev => [newLocation, ...prev]);
-        } catch (err: any) {
-            console.error("Database save failed:", err.message);
-            alert(`Database Save Warning: ${err.message}. The event was added to the temporary screen list for preview but could not be saved to PostgreSQL due to database permissions.`);
-            
-            // Still add locally for realistic UX/preview
-            setLocations(prev => [newLocation, ...prev]);
-        }
-        
-        // Reset form
-        setFormData({
-            title: "",
-            category: [],
-            description: "",
-            address: "",
-            lat: 52.5200,
-            lng: 13.4050,
-            startDate: "",
-            endDate: "",
-            image: "",
-            highlight: false,
-            detail: "",
-            tags: ""
+    const openReportModal = () => {
+        const active = locations.find(l => l.id === (selectedId || hoveredId));
+        const slug = active
+            ? active.id.replace(/^(rest|bar|cafe)-/, "")
+            : "";
+        setReportForm({
+            placeTitle: active?.title || "",
+            placeSlug: slug,
+            message: "",
+            email: "",
         });
-        setIsCreateModalOpen(false);
+        setReportImage(null);
+        setReportImagePreview(null);
+        setReportStatus("idle");
+        setReportError("");
+        setIsReportModalOpen(true);
     };
 
-    const handleCategoryCheckboxChange = (cat: string) => {
-        setFormData(prev => {
-            const exists = prev.category.includes(cat);
-            if (exists) {
-                return { ...prev, category: prev.category.filter(c => c !== cat) };
-            } else {
-                return { ...prev, category: [...prev.category, cat] };
+    const closeReportModal = () => {
+        setIsReportModalOpen(false);
+        setReportStatus("idle");
+        setReportError("");
+        setReportImage(null);
+        setReportImagePreview(null);
+    };
+
+    const handleReportImageChange = (file: File | null) => {
+        if (reportImagePreview) URL.revokeObjectURL(reportImagePreview);
+        if (!file) {
+            setReportImage(null);
+            setReportImagePreview(null);
+            return;
+        }
+        if (!file.type.startsWith("image/")) {
+            setReportError("Please choose an image file.");
+            return;
+        }
+        if (file.size > 8 * 1024 * 1024) {
+            setReportError("Image must be 8MB or smaller.");
+            return;
+        }
+        setReportError("");
+        setReportImage(file);
+        setReportImagePreview(URL.createObjectURL(file));
+    };
+
+    const handleReportSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const message = reportForm.message.trim();
+        if (!message && !reportImage) {
+            setReportError("Add a menu photo or a message.");
+            return;
+        }
+        setReportStatus("sending");
+        setReportError("");
+        try {
+            const fd = new FormData();
+            fd.append("placeTitle", reportForm.placeTitle.trim());
+            fd.append("placeSlug", reportForm.placeSlug.trim());
+            fd.append("message", message);
+            fd.append("email", reportForm.email.trim());
+            if (reportImage) fd.append("image", reportImage);
+
+            const res = await fetch("/api/menu-report", {
+                method: "POST",
+                body: fd,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.details || data.error || "Failed to send report");
             }
-        });
+            setReportStatus("success");
+            setReportForm({ placeTitle: "", placeSlug: "", message: "", email: "" });
+            setReportImage(null);
+            if (reportImagePreview) URL.revokeObjectURL(reportImagePreview);
+            setReportImagePreview(null);
+        } catch (err: any) {
+            setReportStatus("error");
+            setReportError(err.message || "Something went wrong");
+        }
     };
 
     const handleVisibleIdsChange = useCallback((ids: string[]) => {
@@ -189,8 +242,6 @@ export default function Page() {
     }, []);
 
     const FILTER_CATEGORIES = ["Beer", "Cocktail", "Döner"];
-    // Create-event form still uses classic place types
-    const EVENT_CATEGORIES = ["Bar", "Event", "Restaurant"];
 
     // Helper to map any string or array to our 3 main categories
     const mapToMainCategory = (catInput: string | string[] | undefined): string | null => {
@@ -263,7 +314,7 @@ export default function Page() {
     return (
         <main className="flex h-screen w-full flex-col bg-[#fcfaee] overflow-hidden pt-16">
             {/* Navigation */}
-            <Navigation onCreateEventClick={() => setIsCreateModalOpen(true)} />
+            <Navigation onReportMenuClick={openReportModal} />
 
             {/* Content */}
             <div className="flex flex-1 overflow-hidden relative">
@@ -271,10 +322,29 @@ export default function Page() {
                 <div className="w-full lg:w-3/5 xl:w-[55%] h-full overflow-y-auto no-scrollbar p-4 sm:p-6 pb-32 scroll-smooth">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6">
                         {/* Bezirk Picker */}
-                        <div className="relative flex items-center gap-2 border-2 border-black bg-white px-4 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-black dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] w-full sm:w-auto">
-                            <MapPin className="h-4 w-4 text-black dark:text-white shrink-0" />
+                        <div
+                            className={twMerge(
+                                "relative flex items-center gap-2 border-2 border-black px-4 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] w-full sm:w-auto",
+                                selectedBezirk !== "all"
+                                    ? "bg-[#39FF14] dark:bg-[#39FF14]"
+                                    : "bg-white dark:bg-black"
+                            )}
+                        >
+                            <MapPin
+                                className={twMerge(
+                                    "h-4 w-4 shrink-0",
+                                    selectedBezirk !== "all"
+                                        ? "text-black"
+                                        : "text-black dark:text-white"
+                                )}
+                            />
                             <select
-                                className="bg-transparent text-sm font-bold uppercase outline-none text-black dark:text-white font-mono cursor-pointer w-full sm:w-auto pr-6 appearance-none"
+                                className={twMerge(
+                                    "bg-transparent text-sm font-bold uppercase outline-none font-mono cursor-pointer w-full sm:w-auto pr-6 appearance-none",
+                                    selectedBezirk !== "all"
+                                        ? "text-black"
+                                        : "text-black dark:text-white"
+                                )}
                                 value={selectedBezirk}
                                 onChange={(e) => setSelectedBezirk(e.target.value)}
                             >
@@ -284,7 +354,16 @@ export default function Page() {
                                     </option>
                                 ))}
                             </select>
-                            <span className="pointer-events-none absolute right-3 text-black dark:text-white text-xs">▼</span>
+                            <span
+                                className={twMerge(
+                                    "pointer-events-none absolute right-3 text-xs",
+                                    selectedBezirk !== "all"
+                                        ? "text-black"
+                                        : "text-black dark:text-white"
+                                )}
+                            >
+                                ▼
+                            </span>
                         </div>
 
                         {/* Beer / Cocktail / Döner */}
@@ -348,15 +427,89 @@ export default function Page() {
                         {(() => {
                             const activeId = selectedId || hoveredId;
                             const activeLocation = locations.find(l => l.id === activeId);
-                            if (activeLocation && activeLocation.detail) {
+                            if (activeLocation && (activeLocation.detail || activeLocation.menuMd || activeLocation.hours || activeLocation.openingHoursRaw)) {
+                                const menuItems = parseMenuMd(activeLocation.menuMd);
+                                const hoursObj = activeLocation.hours && typeof activeLocation.hours === "object"
+                                    ? activeLocation.hours
+                                    : null;
+                                const hourRows: { day: string; hours: string }[] = hoursObj
+                                    ? DAY_ORDER.filter((d) => hoursObj[d] != null).map((d) => ({
+                                        day: d,
+                                        hours: formatDayHours(hoursObj[d]),
+                                    }))
+                                    : parseRawHoursList(activeLocation.openingHoursRaw || "") || [];
+                                const detailLines = (activeLocation.detail || "")
+                                    .split("\n")
+                                    .filter((l) => l && !l.startsWith("Hours: "));
+
                                 return (
                                     <div className="p-0 h-full overflow-y-auto no-scrollbar">
                                         <h2 className="text-2xl font-semibold mb-3 text-[#b92626] uppercase tracking-tight">
                                             {activeLocation.title}
                                         </h2>
-                                        <div className="whitespace-pre-wrap text-sm leading-relaxed text-black dark:text-gray-100">
-                                            {activeLocation.detail}
-                                        </div>
+
+                                        {/* Menu first (swapped with hours) */}
+                                        {menuItems.length > 0 && (
+                                            <div className="mb-3">
+                                                <h3 className="text-xs font-bold uppercase tracking-widest text-black dark:text-white mb-1">
+                                                    Menu
+                                                    {activeLocation.lowestPrice != null && (
+                                                        <span className="ml-2 text-amber-600 dark:text-amber-400">
+                                                            from {formatPrice(activeLocation.lowestPrice)} €
+                                                        </span>
+                                                    )}
+                                                </h3>
+                                                <table className="w-full text-xs border-collapse">
+                                                    <thead>
+                                                        <tr className="border-b border-black/20 dark:border-white/20 text-left text-black dark:text-white">
+                                                            <th className="py-1 pr-2 font-semibold">Item</th>
+                                                            <th className="py-1 pl-2 text-right font-semibold">Price</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {menuItems.map((item) => (
+                                                            <tr
+                                                                key={`${item.name}-${item.price}`}
+                                                                className="border-b border-black/10 dark:border-white/10"
+                                                            >
+                                                                <td className="py-1 pr-2 text-black dark:text-gray-200">{item.name}</td>
+                                                                <td className="py-1 pl-2 text-right whitespace-nowrap text-black dark:text-gray-200">
+                                                                    {formatPrice(item.price)} €
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+
+                                        {/* Opening hours as list (swapped with menu) */}
+                                        {hourRows.length > 0 && (
+                                            <div className="mb-3">
+                                                <h3 className="text-xs font-bold uppercase tracking-widest text-black dark:text-white mb-1">
+                                                    Opening Hours
+                                                </h3>
+                                                <ul className="text-sm leading-relaxed text-black dark:text-gray-100">
+                                                    {hourRows.map((row) => (
+                                                        <li
+                                                            key={row.day}
+                                                            className="flex justify-between gap-4 border-b border-black/10 dark:border-white/10 py-0.5"
+                                                        >
+                                                            <span className="font-medium">{DAY_LABELS[row.day] || row.day}</span>
+                                                            <span className={row.hours === "Closed" ? "text-gray-500 dark:text-gray-400" : ""}>
+                                                                {row.hours}
+                                                            </span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        {detailLines.length > 0 && (
+                                            <div className="whitespace-pre-wrap text-sm leading-relaxed text-black dark:text-gray-100">
+                                                {detailLines.join("\n")}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             }
@@ -372,199 +525,147 @@ export default function Page() {
                 </div>
             </div>
 
-            {/* Create Event Modal */}
-            {isCreateModalOpen && (
+            {/* Report Menu Fix Modal */}
+            {isReportModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto">
-                    <div className="relative w-full max-w-2xl bg-[#fcfaee] border-4 border-black p-6 md:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] my-8">
-                        
+                    <div className="relative w-full max-w-xl bg-[#fcfaee] border-4 border-black p-6 md:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] my-8">
                         {/* Header */}
                         <div className="flex items-center justify-between border-b-4 border-black pb-4 mb-6">
                             <h2 className="text-2xl md:text-3xl font-black uppercase font-mono tracking-tight text-black flex items-center gap-2">
-                                <span className="bg-rose-500 text-black px-2 py-1 border-2 border-black text-lg md:text-xl">NEW</span>
-                                Create Berlin Event
+                                <span className="bg-sky-400 text-black px-2 py-1 border-2 border-black text-lg md:text-xl">FIX</span>
+                                Report Menu Fix
                             </h2>
-                            <button 
-                                onClick={() => setIsCreateModalOpen(false)}
+                            <button
+                                onClick={closeReportModal}
                                 className="p-2 border-2 border-black bg-white hover:bg-black hover:text-white transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        {/* Form */}
-                        <form onSubmit={handleFormSubmit} className="space-y-5 font-mono text-xs">
-                            
-                            {/* Row 1: Title */}
-                            <div className="flex flex-col gap-1">
-                                <label className="font-bold text-black uppercase tracking-wider">Event Title*</label>
-                                <input 
-                                    type="text" 
-                                    required
-                                    value={formData.title}
-                                    onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                    placeholder="E.G. SYNC.D TECHNO NIGHT AT SPREEWALD"
-                                    className="border-2 border-black p-3 bg-white text-black outline-none focus:bg-[#fffdf4] text-sm uppercase"
-                                />
-                            </div>
-
-                            {/* Row 2: Categories Checkboxes */}
-                            <div className="flex flex-col gap-2">
-                                <label className="font-bold text-black uppercase tracking-wider">Categories* (Select at least one)</label>
-                                <div className="flex flex-wrap gap-4">
-                                    {EVENT_CATEGORIES.map(cat => (
-                                        <label key={cat} className="flex items-center gap-2 cursor-pointer select-none">
-                                            <input 
-                                                type="checkbox"
-                                                checked={formData.category.includes(cat)}
-                                                onChange={() => handleCategoryCheckboxChange(cat)}
-                                                className="w-4 h-4 accent-rose-500 cursor-pointer border-2 border-black"
-                                            />
-                                            <span className="font-bold text-black text-sm uppercase">{cat}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Row 3: Description */}
-                            <div className="flex flex-col gap-1">
-                                <label className="font-bold text-black uppercase tracking-wider">Description*</label>
-                                <textarea 
-                                    required
-                                    value={formData.description}
-                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                    placeholder="BRIEF ONE-LINE DESCRIPTION FOR GRID DISCOVERY"
-                                    rows={2}
-                                    className="border-2 border-black p-3 bg-white text-black outline-none focus:bg-[#fffdf4] text-sm"
-                                />
-                            </div>
-
-                            {/* Row 4: Address */}
-                            <div className="flex flex-col gap-1">
-                                <label className="font-bold text-black uppercase tracking-wider">Address*</label>
-                                <input 
-                                    type="text" 
-                                    required
-                                    value={formData.address}
-                                    onChange={e => setFormData({ ...formData, address: e.target.value })}
-                                    placeholder="E.G. REVALER STR. 99, 10245 BERLIN"
-                                    className="border-2 border-black p-3 bg-white text-black outline-none focus:bg-[#fffdf4] text-sm"
-                                />
-                            </div>
-
-                            {/* Row 5: Lat & Lng */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1">
-                                    <label className="font-bold text-black uppercase tracking-wider">Latitude*</label>
-                                    <input 
-                                        type="number" 
-                                        step="any"
-                                        required
-                                        value={formData.lat}
-                                        onChange={e => setFormData({ ...formData, lat: parseFloat(e.target.value) })}
-                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="font-bold text-black uppercase tracking-wider">Longitude*</label>
-                                    <input 
-                                        type="number" 
-                                        step="any"
-                                        required
-                                        value={formData.lng}
-                                        onChange={e => setFormData({ ...formData, lng: parseFloat(e.target.value) })}
-                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Row 6: Dates */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1">
-                                    <label className="font-bold text-black uppercase tracking-wider">Start Date*</label>
-                                    <input 
-                                        type="datetime-local" 
-                                        required
-                                        value={formData.startDate}
-                                        onChange={e => setFormData({ ...formData, startDate: e.target.value })}
-                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="font-bold text-black uppercase tracking-wider">End Date*</label>
-                                    <input 
-                                        type="datetime-local" 
-                                        required
-                                        value={formData.endDate}
-                                        onChange={e => setFormData({ ...formData, endDate: e.target.value })}
-                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Row 7: Image & Tags */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1">
-                                    <label className="font-bold text-black uppercase tracking-wider">Image URL / Path</label>
-                                    <input 
-                                        type="text" 
-                                        value={formData.image}
-                                        onChange={e => setFormData({ ...formData, image: e.target.value })}
-                                        placeholder="E.G. /images/event-one.jpg"
-                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="font-bold text-black uppercase tracking-wider">Tags (comma-separated)</label>
-                                    <input 
-                                        type="text" 
-                                        value={formData.tags}
-                                        onChange={e => setFormData({ ...formData, tags: e.target.value })}
-                                        placeholder="E.G. TECHNO, OUTDOOR, FREE ENTRY"
-                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm uppercase"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Row 8: Detail Text & Highlight Checkbox */}
-                            <div className="flex flex-col gap-1">
-                                <label className="font-bold text-black uppercase tracking-wider">Detail Text (Shown on selection)</label>
-                                <textarea 
-                                    value={formData.detail}
-                                    onChange={e => setFormData({ ...formData, detail: e.target.value })}
-                                    placeholder="LONG STORY / VIBE CARD FOR THE BOTTOM DETAIL SECTION..."
-                                    rows={3}
-                                    className="border-2 border-black p-3 bg-white text-black outline-none focus:bg-[#fffdf4] text-sm"
-                                />
-                            </div>
-
-                            <div className="flex items-center gap-2 py-1 select-none cursor-pointer">
-                                <input 
-                                    type="checkbox"
-                                    id="highlight-checkbox"
-                                    checked={formData.highlight}
-                                    onChange={e => setFormData({ ...formData, highlight: e.target.checked })}
-                                    className="w-4 h-4 accent-rose-500 border-2 border-black"
-                                />
-                                <label htmlFor="highlight-checkbox" className="font-bold text-black text-sm uppercase cursor-pointer">Highlight/Feature Event</label>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex items-center justify-end gap-3 pt-4 border-t-2 border-black">
-                                <button 
+                        {reportStatus === "success" ? (
+                            <div className="space-y-4 font-mono text-sm text-black">
+                                <p className="border-2 border-black bg-sky-400 px-3 py-2 font-bold uppercase">
+                                    Report sent — thanks!
+                                </p>
+                                <p className="text-xs leading-relaxed">
+                                    We&apos;ll review the new menu photo or price note and update the listing.
+                                </p>
+                                <button
                                     type="button"
-                                    onClick={() => setIsCreateModalOpen(false)}
-                                    className="px-5 py-3 border-2 border-black bg-white hover:bg-black hover:text-white transition-all font-bold text-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                                    onClick={closeReportModal}
+                                    className="px-5 py-3 border-2 border-black bg-white hover:bg-black hover:text-white transition-all font-bold text-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                                 >
-                                    Cancel
-                                </button>
-                                <button 
-                                    type="submit"
-                                    className="px-5 py-3 border-2 border-black bg-rose-500 hover:bg-black hover:text-rose-500 hover:border-rose-500 transition-all font-bold text-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-                                >
-                                    Add Event
+                                    Close
                                 </button>
                             </div>
-                        </form>
+                        ) : (
+                            <form onSubmit={handleReportSubmit} className="space-y-5 font-mono text-xs">
+                                <p className="text-xs text-black/70 leading-relaxed">
+                                    Found wrong prices or a new menu? Upload a photo of the current menu
+                                    and/or leave a short message.
+                                </p>
+
+                                <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-black uppercase tracking-wider">Place</label>
+                                    <input
+                                        type="text"
+                                        value={reportForm.placeTitle}
+                                        onChange={e => setReportForm(prev => ({
+                                            ...prev,
+                                            placeTitle: e.target.value,
+                                            placeSlug: e.target.value
+                                                ? prev.placeSlug || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
+                                                : "",
+                                        }))}
+                                        placeholder="E.G. HAKIKI DÖNER NEUKÖLLN"
+                                        className="border-2 border-black p-3 bg-white text-black outline-none focus:bg-[#fffdf4] text-sm"
+                                    />
+                                    <span className="text-[10px] text-black/50 uppercase">
+                                        Auto-filled if a place is selected on the map
+                                    </span>
+                                </div>
+
+                                <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-black uppercase tracking-wider">
+                                        New menu photo
+                                    </label>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        onChange={e => handleReportImageChange(e.target.files?.[0] || null)}
+                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm file:mr-3 file:px-3 file:py-1 file:border-2 file:border-black file:bg-sky-400 file:text-black file:font-bold file:text-xs file:uppercase file:cursor-pointer"
+                                    />
+                                    {reportImagePreview && (
+                                        <div className="mt-2 border-2 border-black bg-white p-2">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={reportImagePreview}
+                                                alt="Menu preview"
+                                                className="max-h-48 w-auto mx-auto object-contain"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleReportImageChange(null)}
+                                                className="mt-2 text-[10px] font-bold uppercase text-rose-500 underline"
+                                            >
+                                                Remove photo
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-black uppercase tracking-wider">
+                                        Message / price update
+                                    </label>
+                                    <textarea
+                                        value={reportForm.message}
+                                        onChange={e => setReportForm(prev => ({ ...prev, message: e.target.value }))}
+                                        placeholder="E.G. DÖNER IM BROT IS NOW 7.50€ — MENU PHOTO ATTACHED"
+                                        rows={4}
+                                        className="border-2 border-black p-3 bg-white text-black outline-none focus:bg-[#fffdf4] text-sm"
+                                    />
+                                </div>
+
+                                <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-black uppercase tracking-wider">
+                                        Your email (optional)
+                                    </label>
+                                    <input
+                                        type="email"
+                                        value={reportForm.email}
+                                        onChange={e => setReportForm(prev => ({ ...prev, email: e.target.value }))}
+                                        placeholder="YOU@EXAMPLE.COM"
+                                        className="border-2 border-black p-3 bg-white text-black outline-none text-sm"
+                                    />
+                                </div>
+
+                                {reportError && (
+                                    <p className="border-2 border-black bg-rose-500 text-black px-3 py-2 font-bold uppercase">
+                                        {reportError}
+                                    </p>
+                                )}
+
+                                <div className="flex items-center justify-end gap-3 pt-4 border-t-2 border-black">
+                                    <button
+                                        type="button"
+                                        onClick={closeReportModal}
+                                        className="px-5 py-3 border-2 border-black bg-white hover:bg-black hover:text-white transition-all font-bold text-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={reportStatus === "sending"}
+                                        className="px-5 py-3 border-2 border-black bg-sky-400 hover:bg-black hover:text-sky-400 hover:border-sky-400 transition-all font-bold text-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-60"
+                                    >
+                                        {reportStatus === "sending" ? "Sending…" : "Send Report"}
+                                    </button>
+                                </div>
+                            </form>
+                        )}
                     </div>
                 </div>
             )}

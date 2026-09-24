@@ -18,4 +18,8 @@ export interface Location {
     neighborhood?: string | null;
     subtype?: string | null;
     googlePrimaryType?: string | null;
+    menuMd?: string | null;
+    lowestPrice?: number | null;
+    hours?: Record<string, string> | null;
+    openingHoursRaw?: string | null;
 }
