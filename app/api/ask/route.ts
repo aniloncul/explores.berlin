@@ -80,7 +80,27 @@ function stripSourceNames(text: string, names: string[]): string {
         .replace(/\*{2,}/g, "")
         .replace(/[ \t]{2,}/g, " ")
         .replace(/\s+([.,!?])/g, "$1")
+        // drop leaked prompt echoes ("If a price is not in the tables, ...")
+        .replace(/if a price is not in the tables[^.!\n]*[.!\n]/gi, "")
+        .replace(/\n{3,}/g, "\n\n")
         .trim();
+}
+
+// Small models repeat themselves on long menus: drop duplicate lines.
+function dedupeLines(text: string): string {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const ln of text.split("\n")) {
+        const key = ln.trim().toLowerCase();
+        if (!key) {
+            if (out.length && out[out.length - 1] !== "") out.push("");
+            continue;
+        }
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(ln.trimEnd());
+    }
+    return out.join("\n").trim();
 }
 
 // ---------------------------------------------------------------- local ---
@@ -226,8 +246,15 @@ async function askCloud(
     ).rows as { slug: string; name: string; neighborhood: string; menu_md: string }[];
     if (!rows.length) throw new Error("veritabanında menü yok");
 
-    const known = new Set(rows.map((r) => r.slug));
-    const context = rows.map((r) => `### slug: ${r.slug} | ${r.name}\n${r.menu_md}`).join("\n\n");
+    // Pre-filter: keyword shortlist keeps the prompt small so the model
+    // actually follows the SOURCES instruction. Fall back to all menus
+    // when the question has no keyword overlap (semantic queries).
+    const shortlist = keywordScored(question, rows).filter((x) => x.s > 0);
+    const candidates = (shortlist.length >= 3 ? shortlist : rows.map((r) => ({ r, s: 1 }))).slice(0, 12);
+    const known = new Set(candidates.map((x) => x.r.slug));
+    const context = candidates
+        .map((x) => `### slug: ${x.r.slug} | ${x.r.name}\n${x.r.menu_md}`)
+        .join("\n\n");
 
     const prompt = [
         "You are an assistant that knows the menus of döner/kebab restaurants in Berlin.",
@@ -237,7 +264,11 @@ async function askCloud(
         "- Only state dishes and prices found in the tables, never invent any.",
         "- Never write the name of any restaurant, even if the question mentions one; refer only to dishes and prices.",
         "- If a price is not in the tables, say you couldn't find it.",
-        '- At the very end, on its own line, write: SOURCES: ["slug-1", "slug-2"] with up to 3 menu slugs you used, most relevant first.',
+        "- Group the same dish from different menus into ONE line with all its prices (e.g. 'Halloumi im Brot: 5,50 €, 6,00 €').",
+        "- Skip table rows with unknown (?) prices.",
+        "REQUIRED FIRST LINE: start your reply with exactly:",
+        'SOURCES: ["menu-slug-1", "menu-slug-2"]',
+        "with up to 3 menu slugs you used, most relevant first. Only slugs listed above are valid — copy them exactly. Never omit this line. Then, on the next lines, write the answer.",
         "",
         history ? `Previous conversation:\n${history}\n` : "",
         `Menu tables:\n${context}`,
@@ -245,6 +276,17 @@ async function askCloud(
         `Question: ${question}`,
     ].join("\n");
 
+    const body: Record<string, any> = {
+        model: cfg.model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+        max_tokens: 1024,
+    };
+    if (provider === "nvidia") {
+        // nemotron thinks by default (answer lands in reasoning_content);
+        // disable it so the answer comes back in `content`.
+        body.chat_template_kwargs = { enable_thinking: false };
+    }
     const res = await fetch(`${cfg.base}/chat/completions`, {
         method: "POST",
         headers: {
@@ -252,12 +294,7 @@ async function askCloud(
             Authorization: `Bearer ${cfg.key}`,
             ...cfg.extraHeaders,
         },
-        body: JSON.stringify({
-            model: cfg.model,
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.2,
-            max_tokens: 1024,
-        }),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(180_000),
     });
     if (!res.ok) {
@@ -269,13 +306,68 @@ async function askCloud(
     if (!text) throw new Error(`${provider}: boş cevap`);
     const { answer, slugs } = parseCloudReply(text, known);
     const bySlug = new Map(rows.map((r) => [r.slug, r]));
-    const sources: Source[] = slugs.map((slug, i) => ({
+    // Strip EVERY known restaurant name (not just top hits): "where" answers
+    // otherwise smuggle source names back into the text.
+    const allNames = rows.map((r) => r.name);
+    const cleanAnswer = dedupeLines(stripSourceNames(answer, allNames));
+    let sources: Source[] = slugs.map((slug, i) => ({
         id: slug,
         title: bySlug.get(slug)!.name,
         neighborhood: bySlug.get(slug)!.neighborhood,
         score: Number((0.9 - i * 0.1).toFixed(2)),
     }));
-    return { answer: answer || "(empty answer)", sources };
+    if (!sources.length) {
+        // Model skipped the SOURCES line: use the keyword shortlist order
+        // so the map/cards still get results.
+        sources = candidates.slice(0, TOP_K).map((x, i) => ({
+            id: x.r.slug,
+            title: x.r.name,
+            neighborhood: x.r.neighborhood,
+            score: Number((0.5 - i * 0.1).toFixed(2)),
+        }));
+    }
+    return { answer: cleanAnswer || "(empty answer)", sources };
+}
+
+const STOP = new Set(
+    "der die das und oder mit von für ist ein eine einen einem einer den dem im am beim zum zur ne kadar kaç para ne nerede var yok mu mı mi bu şu ve veya ile için kadar çok the and or with from for what how much where which does is are was wer wie was wo gibt kostet preis menü speisekarte restaurant de da".split(" ")
+);
+
+function keywordScored(
+    question: string,
+    rows: { slug: string; name: string; neighborhood: string; menu_md: string }[]
+): { r: { slug: string; name: string; neighborhood: string; menu_md: string }; s: number }[] {
+    const words = (question.toLowerCase().match(/[a-zäöüßçğıöşü]{3,}/g) || []).filter(
+        (w) => !STOP.has(w)
+    );
+    const scored = rows.map((r) => {
+        const menu = r.menu_md.toLowerCase();
+        const name = r.name.toLowerCase();
+        let s = 0;
+        for (const w of words) {
+            if (name.includes(w)) s += 3;
+            const hits = menu.split(w).length - 1;
+            s += Math.min(hits, 3);
+        }
+        return { r, s };
+    });
+    scored.sort((a, b) => b.s - a.s);
+    return scored;
+}
+
+function keywordFallback(
+    question: string,
+    rows: { slug: string; name: string; neighborhood: string; menu_md: string }[]
+): Source[] {
+    return keywordScored(question, rows)
+        .filter((x) => x.s > 0)
+        .slice(0, TOP_K)
+        .map((x, i) => ({
+            id: x.r.slug,
+            title: x.r.name,
+            neighborhood: x.r.neighborhood,
+            score: Number((0.5 - i * 0.1).toFixed(2)),
+        }));
 }
 
 // ---------------------------------------------------------------- handler ---
