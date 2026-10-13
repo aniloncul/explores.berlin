@@ -5,8 +5,6 @@ import { query as dbQuery } from "@/lib/db";
 // --- local RAG services (this Mac) ---
 const EG2_URL = process.env.EG2_URL || "http://127.0.0.1:8081";
 const EG2_MODEL = process.env.EG2_MODEL || "embeddinggemma-2";
-const OLLAMA_URL = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
-const AGENT_LLM = process.env.AGENT_LLM || "qwen3:8b";
 
 // --- cloud providers (works anywhere, needs an API key in .env.local) ---
 //   ASK_PROVIDER=auto|local|openrouter|nvidia
@@ -66,149 +64,17 @@ function cos(a: number[], b: number[]): number {
     return dot; // vectors are L2-normalized
 }
 
-function tableOf(menus: Record<string, any>, id: string): string {
-    const e = menus[id];
-    if (e && e.status === "ok" && e.table) return String(e.table);
-    return "";
-}
-
 const MATCH_HEADER = "The places matching your query are listed below:";
 
 function withHeader(result: { answer: string; sources: Source[] }): {
     answer: string;
     sources: Source[];
 } {
-    if (result.sources.length && result.answer) {
-        return { ...result, answer: `${MATCH_HEADER}\n\n${result.answer}` };
+    if (result.sources.length) {
+        const body = result.answer ? `\n\n${result.answer}` : "";
+        return { ...result, answer: `${MATCH_HEADER}${body}` };
     }
     return result;
-}
-
-// The agent must not name its sources: strip top-hit restaurant names
-// (incl. "at <name>" phrasing and markdown-bold variants) from the answer.
-function stripSourceNames(text: string, names: string[]): string {
-    let out = text;
-    for (const name of names) {
-        if (!name) continue;
-        const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        out = out
-            .replace(new RegExp(`\\s+(?:at|from|in|bei|im|von)\\s+(?:the\\s+)?${esc}`, "gi"), "")
-            .replace(new RegExp(`\\*\\*${esc}\\*\\*`, "gi"), "")
-            .replace(new RegExp(esc, "gi"), "");
-    }
-    return out
-        .replace(/\*{2,}/g, "")
-        .replace(/[ \t]{2,}/g, " ")
-        .replace(/\s+([.,!?])/g, "$1")
-        // drop leaked prompt echoes ("If a price is not in the tables, ...")
-        .replace(/if a price is not in the tables[^.!\n]*[.!\n]/gi, "")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-}
-
-// Drop exact-duplicate lines (small models repeat themselves).
-function dedupeLines(text: string): string {
-    const lines = text.split("\n");
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (let i = 0; i < lines.length; i++) {
-        const ln = lines[i];
-        const key = ln.trim().toLowerCase();
-        if (!key) {
-            if (out.length && out[out.length - 1] !== "") out.push("");
-            continue;
-        }
-        // generation stutter: line is a strict prefix of the next line
-        const next = (lines[i + 1] || "").trim().toLowerCase();
-        if (next.startsWith(key) && next.length > key.length) continue;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push(ln.trimEnd());
-    }
-    return out.join("\n").trim();
-}
-
-// Merge "Dish: ..." lines sharing the same dish head (price-aware union),
-// drop bare "Dish:" labels that duplicate a priced line, clean empty ().
-function mergeDishLines(text: string): string {
-    const order: string[] = [];
-    const bucket = new Map<string, { head: string; prices: string[] }>();
-    const others: string[] = [];
-    for (const ln of text.split("\n")) {
-        const m = ln.match(/^([^:]{2,60}?):\s*(.*)$/);
-        if (!m) {
-            others.push(ln);
-            continue;
-        }
-        const head = m[1].trim().replace(/\s*\(\s*\)/g, "");
-        const body = m[2].trim().replace(/\s*\(\s*\)/g, "").replace(/,\s*,/g, ",").replace(/:\s*,/g, ":").replace(/,\s*$/g, "");
-        const key = head.toLowerCase();
-        if (!body) {
-            others.push(`\0BARE\0${key}\0${head}`);
-            continue;
-        }
-        if (!bucket.has(key)) {
-            bucket.set(key, { head, prices: [] });
-            order.push(key);
-        }
-        const entry = bucket.get(key)!;
-        const found = body.match(/\d{1,3},\d{2}\s*€|\?/g) || [];
-        for (const p of found) {
-            const norm = p.replace(/\s+/g, " ");
-            if (!entry.prices.includes(norm)) entry.prices.push(norm);
-        }
-        const rest = body
-            .replace(/\d{1,3},\d{2}\s*€|\?/g, "")
-            .replace(/,\s*,/g, ",")
-            .replace(/^,|,$/g, "")
-            .trim();
-        if (rest && !/^[,;:\s]+$/.test(rest) && !entry.prices.includes(rest)) entry.prices.push(rest);
-    }
-    const priced = new Set(order.filter((k) => bucket.get(k)!.prices.length > 0));
-    const out: string[] = [];
-    for (const ln of others) {
-        if (ln.startsWith("\0BARE\0")) {
-            const [, key] = ln.replace("\0BARE\0", "").split("\0");
-            if (priced.has(key)) continue; // bare dup of a priced dish
-            out.push(ln.split("\0").pop()! + ":");
-            continue;
-        }
-        out.push(ln);
-    }
-    // NOTE: merged dish lines are appended after passthrough lines.
-    const merged = order.map((k) => {
-        const e = bucket.get(k)!;
-        return e.prices.length ? `${e.head}: ${e.prices.join(", ")}` : `${e.head}:`;
-    });
-    return [...out, ...merged]
-        .join("\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-}
-
-// Grouped lines repeat the same price ("8,00 €, 8,00 €, ..."): drop repeat
-// occurrences of a price within a line (German decimals contain commas,
-// so this is price-aware, not comma-split).
-function dedupePrices(text: string): string {
-    return text
-        .split("\n")
-        .map((ln) => {
-            if (!ln.includes("€")) return ln;
-            const seen = new Set<string>();
-            return ln
-                .replace(/(\d{1,3},\d{2}\s*€)/g, (m) => {
-                    const k = m.replace(/\s+/g, " ");
-                    if (seen.has(k)) return "";
-                    seen.add(k);
-                    return m;
-                })
-                .replace(/,\s*,/g, ",")
-                .replace(/:\s*,/g, ":")
-                .replace(/,\s*$/g, "")
-                .replace(/\s{2,}/g, " ")
-                .trim();
-        })
-        .join("\n");
 }
 
 // ---------------------------------------------------------------- local ---
@@ -224,11 +90,8 @@ async function embed(text: string): Promise<number[]> {
     return data.data[0].embedding as number[];
 }
 
-async function askLocal(
-    question: string,
-    history: string
-): Promise<{ answer: string; sources: Source[] }> {
-    const { records, menus } = loadStore();
+async function askLocal(question: string): Promise<{ answer: string; sources: Source[] }> {
+    const { records } = loadStore();
     const q = await embed(question); // throws when llama-server is down
 
     const scored = records.map((r) => {
@@ -243,49 +106,9 @@ async function askLocal(
     scored.sort((a, b) => b.best - a.best);
     const top = scored.slice(0, TOP_K);
 
-    const context = top
-        .map(({ r }, i) => {
-            const table = tableOf(menus, r.id);
-            return [
-                `--- Menu ${i + 1}: ${r.title} (${r.neighborhood || ""}, ${r.cuisine || ""}, ${r.address || ""}) ---`,
-                table || "(no table)",
-            ].join("\n");
-        })
-        .join("\n\n");
-
-    const prompt = [
-        "You are an assistant that knows the menus of döner/kebab restaurants in Berlin.",
-        "Answer the user's question USING ONLY the menu tables below.",
-        "Rules:",
-        "- Always answer in English, no matter the question's language.",
-        "- Only state dishes and prices found in the tables, never invent any.",
-        "- Never write the name of any restaurant, even if the question mentions one; refer only to dishes and prices.",
-        "- If a price is not in the tables, say you couldn't find it.",
-        "",
-        history ? `Previous conversation:\n${history}\n` : "",
-        `Menu tables:\n${context}`,
-        "",
-        `Question: ${question}`,
-    ].join("\n");
-
-    const res = await fetch(`${OLLAMA_URL}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            model: AGENT_LLM,
-            stream: false,
-            think: false,
-            messages: [{ role: "user", content: prompt }],
-            options: { temperature: 0.2, num_ctx: 8192, num_predict: 512 },
-        }),
-        signal: AbortSignal.timeout(180_000),
-    });
-    if (!res.ok) throw new Error(`ollama ${res.status}`);
-    const data = await res.json();
-    let answer = String(data.message?.content || "").trim() || "(empty answer)";
-    answer = stripSourceNames(answer, top.map(({ r }) => r.title));
+    // Answer text is just the header — matching places render as cards below.
     return withHeader({
-        answer,
+        answer: "",
         sources: top.map(({ r, best }) => ({
             id: r.id,
             title: r.title,
@@ -341,7 +164,6 @@ function parseCloudReply(text: string, knownSlugs: Set<string>): { answer: strin
 
 async function askCloud(
     question: string,
-    history: string,
     provider: "openrouter" | "nvidia"
 ): Promise<{ answer: string; sources: Source[] }> {
     const cfg = cloudConfig(provider);
@@ -363,20 +185,15 @@ async function askCloud(
         .join("\n\n");
 
     const prompt = [
-        "You are an assistant that knows the menus of döner/kebab restaurants in Berlin.",
-        "Answer the user's question USING ONLY the menu tables below.",
-        "Rules:",
-        "- Always answer in English, no matter the question's language.",
-        "- Only state dishes and prices found in the tables, never invent any.",
-        "- Never write the name of any restaurant, even if the question mentions one; refer only to dishes and prices.",
-        "- If a price is not in the tables, say you couldn't find it.",
-        "- List each matching dish on its own line as 'Dish: price', copying prices exactly as shown. At most 15 lines.",
-        "- Skip table rows with unknown (?) prices.",
-        "REQUIRED FIRST LINE: start your reply with exactly:",
+        "You rank döner/kebab restaurant menus in Berlin against a question.",
+        "Reply with ONLY one line and nothing else:",
         'SOURCES: ["menu-slug-1", "menu-slug-2"]',
-        "with up to 3 menu slugs you used, most relevant first. Only slugs listed above are valid — copy them exactly. Never omit this line. Then, on the next lines, write the answer.",
+        "with up to 3 menu slugs that best match the question, most relevant first.",
+        "Only slugs listed above are valid — copy them exactly. No explanations, no other text.",
+        "Example:",
+        "Question: Where is Döner im Brot 2,99 €?",
+        'SOURCES: ["liebe_doener"]',
         "",
-        history ? `Previous conversation:\n${history}\n` : "",
         `Menu tables:\n${context}`,
         "",
         `Question: ${question}`,
@@ -385,8 +202,8 @@ async function askCloud(
     const body: Record<string, any> = {
         model: cfg.model,
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-        max_tokens: 2048,
+        temperature: 0,
+        max_tokens: 256,
     };
     if (provider === "nvidia") {
         // nemotron thinks by default (answer lands in reasoning_content);
@@ -410,12 +227,10 @@ async function askCloud(
     const data = await res.json();
     const text = String(data.choices?.[0]?.message?.content || "").trim();
     if (!text) throw new Error(`${provider}: boş cevap`);
-    const { answer, slugs } = parseCloudReply(text, known);
+    // Answer text is discarded — the reply is header-only, matches render
+    // as place cards below. Only the SOURCES slugs are used.
+    const { slugs } = parseCloudReply(text, known);
     const bySlug = new Map(rows.map((r) => [r.slug, r]));
-    // Strip EVERY known restaurant name (not just top hits): "where" answers
-    // otherwise smuggle source names back into the text.
-    const allNames = rows.map((r) => r.name);
-    const cleanAnswer = mergeDishLines(dedupeLines(dedupePrices(stripSourceNames(answer, allNames))));
     let sources: Source[] = slugs.map((slug, i) => ({
         id: slug,
         title: bySlug.get(slug)!.name,
@@ -427,7 +242,10 @@ async function askCloud(
         // so the map/cards still get results (never filters the answer).
         sources = keywordFallback(question, rows);
     }
-    return withHeader({ answer: cleanAnswer || "(empty answer)", sources });
+    if (!sources.length) {
+        return { answer: "No matching places found.", sources };
+    }
+    return withHeader({ answer: "", sources });
 }
 
 const STOP = new Set(
@@ -479,31 +297,25 @@ export async function POST(req: Request) {
         if (!question) {
             return NextResponse.json({ error: "empty question" }, { status: 400 });
         }
-        const history: string = Array.isArray(body.history)
-            ? body.history
-                  .slice(-4)
-                  .map((m: any) => `${m.role === "user" ? "User" : "Assistant"}: ${m.text}`)
-                  .join("\n")
-            : "";
 
         const provider = ASK_PROVIDER;
         try {
-            if (provider === "local") return NextResponse.json(await askLocal(question, history));
+            if (provider === "local") return NextResponse.json(await askLocal(question));
             if (provider === "openrouter" || provider === "nvidia") {
-                return NextResponse.json(await askCloud(question, history, provider));
+                return NextResponse.json(await askCloud(question, provider));
             }
             // auto: local first, cloud fallback (on Vercel there are no
             // local files/services, so go straight to cloud)
             const localAvailable = fs.existsSync(INDEX_PATH);
             try {
                 if (!localAvailable) throw new Error("local RAG yok, cloud deneniyor");
-                return NextResponse.json(await askLocal(question, history));
+                return NextResponse.json(await askLocal(question));
             } catch (e: any) {
                 if (process.env.OPENROUTER_API_KEY) {
-                    return NextResponse.json(await askCloud(question, history, "openrouter"));
+                    return NextResponse.json(await askCloud(question, "openrouter"));
                 }
                 if (process.env.NVIDIA_API_KEY) {
-                    return NextResponse.json(await askCloud(question, history, "nvidia"));
+                    return NextResponse.json(await askCloud(question, "nvidia"));
                 }
                 throw e;
             }
