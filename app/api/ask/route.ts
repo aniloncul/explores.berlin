@@ -46,8 +46,8 @@ function loadStore() {
         records = JSON.parse(fs.readFileSync(INDEX_PATH, "utf8")).records;
     } catch {
         throw new Error(
-            `RAG index yok (${INDEX_PATH}). Bu makinede local embedding yok — ` +
-                ".env.local'a NVIDIA_API_KEY + ASK_PROVIDER=nvidia ekleyin."
+            `RAG index yok (${INDEX_PATH}). Local embedding yok — ` +
+                "NVIDIA_API_KEY + ASK_PROVIDER=nvidia gerekli (.env.local veya Vercel env)."
         );
     }
     let menus: Record<string, any> = {};
@@ -492,8 +492,11 @@ export async function POST(req: Request) {
             if (provider === "openrouter" || provider === "nvidia") {
                 return NextResponse.json(await askCloud(question, history, provider));
             }
-            // auto: local first, cloud fallback
+            // auto: local first, cloud fallback (on Vercel there are no
+            // local files/services, so go straight to cloud)
+            const localAvailable = fs.existsSync(INDEX_PATH);
             try {
+                if (!localAvailable) throw new Error("local RAG yok, cloud deneniyor");
                 return NextResponse.json(await askLocal(question, history));
             } catch (e: any) {
                 if (process.env.OPENROUTER_API_KEY) {
