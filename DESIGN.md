@@ -1,7 +1,7 @@
 # Explores.Berlin — Style Reference
 > Neo-brutalist arcade console over warm cream — a Berlin city guide where pixel type, hard offset shadows and neon accents meet structured cream-toned UI surfaces.
 
-**Theme:** mixed
+**Theme:** mixed (light-only — no dark mode; `dark:` variants are not used anywhere, dark surfaces like the nav are fixed colors, not OS-dependent)
 
 Explores.Berlin feels like a playable city console — warm cream canvas framed by 2px black borders and 4px offset hard shadows, while a near-black fixed nav with rose accents brackets the top. The layout is an app shell (not a landing page): filter toolbar and scrollable listing grid left, live map right. Goldman is the default face for body and headings — geometric, techy, slightly condensed; Press Start 2P ("pixel") fires only for arcade labels and the marquee ticker; ui-monospace handles buttons and micro-labels. Rose (#f43f5e) is the primary action accent (nav CTA, active states, logo mark); neon lime (#39FF14) marks selection; sky (#38BDF8) marks info CTAs; price red (#b92626) marks headings and prices. Category meaning is carried by a fixed marker/badge palette (pink bar, violet restaurant, lime döner, amber beer…).
 

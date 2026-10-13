@@ -326,10 +326,10 @@ export default function Page() {
                         {/* Bezirk Picker */}
                         <div
                             className={twMerge(
-                                "relative flex items-center gap-2 border-2 border-black px-4 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] w-full sm:w-auto",
+                                "relative flex items-center gap-2 border-2 border-black px-4 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] w-full sm:w-auto",
                                 selectedBezirk !== "all"
-                                    ? "bg-[#39FF14] dark:bg-[#39FF14]"
-                                    : "bg-white dark:bg-black"
+                                    ? "bg-[#39FF14]"
+                                    : "bg-white"
                             )}
                         >
                             <MapPin
@@ -337,7 +337,7 @@ export default function Page() {
                                     "h-4 w-4 shrink-0",
                                     selectedBezirk !== "all"
                                         ? "text-black"
-                                        : "text-black dark:text-white"
+                                        : "text-black"
                                 )}
                             />
                             <select
@@ -345,7 +345,7 @@ export default function Page() {
                                     "bg-transparent text-sm font-bold uppercase outline-none font-mono cursor-pointer w-full sm:w-auto pr-6 appearance-none",
                                     selectedBezirk !== "all"
                                         ? "text-black"
-                                        : "text-black dark:text-white"
+                                        : "text-black"
                                 )}
                                 value={selectedBezirk}
                                 onChange={(e) => setSelectedBezirk(e.target.value)}
@@ -361,7 +361,7 @@ export default function Page() {
                                     "pointer-events-none absolute right-3 text-xs",
                                     selectedBezirk !== "all"
                                         ? "text-black"
-                                        : "text-black dark:text-white"
+                                        : "text-black"
                                 )}
                             >
                                 ▼
@@ -375,10 +375,10 @@ export default function Page() {
                                     key={cat}
                                     onClick={() => toggleCategory(cat)}
                                     className={twMerge(
-                                        "whitespace-nowrap px-4 py-2 text-xs font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-mono",
+                                        "whitespace-nowrap px-4 py-2 text-xs font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-mono",
                                         activeCategories.includes(cat)
-                                            ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
-                                            : "bg-white text-black border-black hover:bg-black hover:text-white dark:bg-black dark:text-white dark:border-white dark:hover:bg-white dark:hover:text-black"
+                                            ? "bg-black text-white border-black"
+                                            : "bg-white text-black border-black hover:bg-black hover:text-white"
                                     )}
                                 >
                                     {cat}
@@ -391,9 +391,9 @@ export default function Page() {
                         {isLoading ? (
                             Array.from({ length: 9 }).map((_, i) => (
                                 <div key={i} className="flex flex-col gap-3">
-                                    <div className="w-full aspect-[4/3] bg-gray-200 dark:bg-zinc-800 rounded-xl animate-pulse" />
-                                    <div className="h-4 w-3/4 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse" />
-                                    <div className="h-4 w-1/2 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse" />
+                                    <div className="w-full aspect-[4/3] bg-gray-200 rounded-xl animate-pulse" />
+                                    <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse" />
+                                    <div className="h-4 w-1/2 bg-gray-200 rounded animate-pulse" />
                                 </div>
                             ))
                         ) : (
@@ -402,7 +402,7 @@ export default function Page() {
                                     <ListingCard key={loc.id} location={loc} />
                                 ))}
                                 {displayLocations.length === 0 && (
-                                    <div className="col-span-full py-12 flex flex-col items-center justify-center gap-3 text-gray-500 dark:text-zinc-500 text-center">
+                                    <div className="col-span-full py-12 flex flex-col items-center justify-center gap-3 text-gray-500 text-center">
                                         <p>No results for this selection.</p>
                                         <p className="text-xs uppercase tracking-widest opacity-70">
                                             Bezirk: {selectedBezirk === "all" ? "All" : selectedBezirk}
@@ -453,17 +453,17 @@ export default function Page() {
                                         {/* Menu first (swapped with hours) */}
                                         {menuItems.length > 0 && (
                                             <div className="mb-3">
-                                                <h3 className="text-xs font-bold uppercase tracking-widest text-black dark:text-white mb-1">
+                                                <h3 className="text-xs font-bold uppercase tracking-widest text-black mb-1">
                                                     Menu
                                                     {activeLocation.lowestPrice != null && (
-                                                        <span className="ml-2 text-amber-600 dark:text-amber-400">
+                                                        <span className="ml-2 text-amber-600">
                                                             from {formatPrice(activeLocation.lowestPrice)} €
                                                         </span>
                                                     )}
                                                 </h3>
                                                 <table className="w-full text-xs border-collapse">
                                                     <thead>
-                                                        <tr className="border-b border-black/20 dark:border-white/20 text-left text-black dark:text-white">
+                                                        <tr className="border-b border-black/20 text-left text-black">
                                                             <th className="py-1 pr-2 font-semibold">Item</th>
                                                             <th className="py-1 pl-2 text-right font-semibold">Price</th>
                                                         </tr>
@@ -472,10 +472,10 @@ export default function Page() {
                                                         {menuItems.map((item) => (
                                                             <tr
                                                                 key={`${item.name}-${item.price}`}
-                                                                className="border-b border-black/10 dark:border-white/10"
+                                                                className="border-b border-black/10"
                                                             >
-                                                                <td className="py-1 pr-2 text-black dark:text-white">{item.name}</td>
-                                                                <td className="py-1 pl-2 text-right whitespace-nowrap text-black dark:text-white">
+                                                                <td className="py-1 pr-2 text-black">{item.name}</td>
+                                                                <td className="py-1 pl-2 text-right whitespace-nowrap text-black">
                                                                     {formatPrice(item.price)} €
                                                                 </td>
                                                             </tr>
@@ -488,17 +488,17 @@ export default function Page() {
                                         {/* Opening hours as list (swapped with menu) */}
                                         {hourRows.length > 0 && (
                                             <div className="mb-3">
-                                                <h3 className="text-xs font-bold uppercase tracking-widest text-black dark:text-white mb-1">
+                                                <h3 className="text-xs font-bold uppercase tracking-widest text-black mb-1">
                                                     Opening Hours
                                                 </h3>
-                                                <ul className="text-sm leading-relaxed text-black dark:text-gray-100">
+                                                <ul className="text-sm leading-relaxed text-black">
                                                     {hourRows.map((row) => (
                                                         <li
                                                             key={row.day}
-                                                            className="flex justify-between gap-4 border-b border-black/10 dark:border-white/10 py-0.5"
+                                                            className="flex justify-between gap-4 border-b border-black/10 py-0.5"
                                                         >
                                                             <span className="font-medium">{DAY_LABELS[row.day] || row.day}</span>
-                                                            <span className={row.hours === "Closed" ? "text-gray-500 dark:text-gray-400" : ""}>
+                                                            <span className={row.hours === "Closed" ? "text-gray-500" : ""}>
                                                                 {row.hours}
                                                             </span>
                                                         </li>
@@ -508,7 +508,7 @@ export default function Page() {
                                         )}
 
                                         {detailLines.length > 0 && (
-                                            <div className="whitespace-pre-wrap text-sm leading-relaxed text-black dark:text-gray-100">
+                                            <div className="whitespace-pre-wrap text-sm leading-relaxed text-black">
                                                 {detailLines.join("\n")}
                                             </div>
                                         )}
@@ -516,7 +516,7 @@ export default function Page() {
                                 );
                             }
                             return (
-                                <div className="flex items-center justify-center h-full border-t border-black/10 dark:border-white/10">
+                                <div className="flex items-center justify-center h-full border-t border-black/10">
                                     <p className="text-gray-400 text-xs uppercase tracking-widest italic">
                                         SELECT AN EVENT TO SEE DETAILS
                                     </p>

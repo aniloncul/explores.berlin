@@ -77,7 +77,7 @@ export default function MapComponent({ filteredLocations, onVisibleIdsChange }: 
     const hoverSize = getHoverSizeClass();
 
     return (
-        <div className="h-full w-full bg-white rounded-none overflow-hidden border-2 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
+        <div className="h-full w-full bg-white rounded-none overflow-hidden border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}>
                 <Map
                     defaultCenter={defaultCenter}
