@@ -466,8 +466,8 @@ export default function Page() {
                                                                 key={`${item.name}-${item.price}`}
                                                                 className="border-b border-black/10 dark:border-white/10"
                                                             >
-                                                                <td className="py-1 pr-2 text-black dark:text-gray-200">{item.name}</td>
-                                                                <td className="py-1 pl-2 text-right whitespace-nowrap text-black dark:text-gray-200">
+                                                                <td className="py-1 pr-2 text-black dark:text-white">{item.name}</td>
+                                                                <td className="py-1 pl-2 text-right whitespace-nowrap text-black dark:text-white">
                                                                     {formatPrice(item.price)} €
                                                                 </td>
                                                             </tr>
