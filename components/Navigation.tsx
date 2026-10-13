@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Sparkles } from "lucide-react";
 
 interface NavigationProps {
     onReportMenuClick?: () => void;
+    onAskAiClick?: () => void;
 }
 
-export default function Navigation({ onReportMenuClick }: NavigationProps) {
+export default function Navigation({ onReportMenuClick, onAskAiClick }: NavigationProps) {
     const pathname = usePathname();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -18,32 +19,32 @@ export default function Navigation({ onReportMenuClick }: NavigationProps) {
             <div className="w-full px-6 lg:px-12">
                 <div className="flex items-center justify-between h-16">
 
-                    {/* Logo - Left */}
-                    <Link href="/" className="flex items-center gap-3 group">
-                        <div className="h-9 w-9 bg-rose-500 border-2 border-zinc-700 flex items-center justify-center font-black text-black font-mono shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] rounded-sm">
-                            EB
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-white font-bold text-lg tracking-tight leading-none">
-                                EXPLORES
-                            </span>
-                            <span className="text-rose-500 text-[10px] font-medium tracking-[0.2em] uppercase">
-                                Berlin
-                            </span>
-                        </div>
-                    </Link>
-
-                    {/* Desktop Menu - Right */}
-                    <div className="hidden md:flex items-center gap-4">
+                    {/* Left: Home + Ask AI */}
+                    <div className="flex items-center gap-3">
                         <Link
                             href="/"
-                            className={`px-4 py-2 text-sm font-medium uppercase tracking-wider transition-all duration-200 ${
-                                pathname === "/" ? "text-white" : "text-zinc-400 hover:text-white"
+                            className={`px-4 py-2 text-sm font-medium uppercase tracking-wider transition-all duration-200 border-2 ${
+                                pathname === "/"
+                                    ? "text-black bg-white border-white"
+                                    : "text-zinc-400 border-zinc-700 hover:text-white hover:border-white"
                             }`}
                         >
                             Home
                         </Link>
-                        
+
+                        {onAskAiClick && (
+                            <button
+                                onClick={onAskAiClick}
+                                className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider bg-neon text-black border-2 border-neon hover:bg-black hover:text-neon transition-all shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-mono"
+                            >
+                                <Sparkles className="w-4 h-4" />
+                                Ask AI
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Desktop Menu - Right */}
+                    <div className="hidden md:flex items-center gap-4">
                         {onReportMenuClick && (
                             <button
                                 onClick={onReportMenuClick}
@@ -84,6 +85,19 @@ export default function Navigation({ onReportMenuClick }: NavigationProps) {
                             Home
                         </Link>
                         
+                        {onAskAiClick && (
+                            <button
+                                onClick={() => {
+                                    setMobileMenuOpen(false);
+                                    onAskAiClick();
+                                }}
+                                className="w-full text-left flex items-center gap-2 px-4 py-3 text-sm font-bold uppercase tracking-wider text-black bg-neon border-l-2 border-neon font-mono"
+                            >
+                                <Sparkles className="w-4 h-4" />
+                                Ask AI
+                            </button>
+                        )}
+
                         {onReportMenuClick && (
                             <button
                                 onClick={() => {

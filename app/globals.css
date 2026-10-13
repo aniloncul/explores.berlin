@@ -28,13 +28,8 @@ body {
   /* Slower for readability */
 }
 
-.font-pixel {
-  font-family: var(--font-pixel), monospace;
-}
-
-.font-goldman {
-  font-family: var(--font-goldman), 'Courier New', monospace;
-}
+/* NOTE: .font-pixel / .font-goldman now come from tailwind.config.ts
+   (theme.extend.fontFamily) — do not re-add them here. */
 
 @layer utilities {
 

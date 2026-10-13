@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 // import { supabase } from "@/lib/supabase"; // Temporarily disabled - using mock data
 import { mockLocations } from "@/data/mockLocations"; // Mock data import
 import { Location } from "@/types";
@@ -69,6 +70,7 @@ const BEZIRKE = [
 ];
 
 export default function Page() {
+    const router = useRouter();
     const {
         activeCategories, toggleCategory,
         hoveredId, selectedId
@@ -314,7 +316,7 @@ export default function Page() {
     return (
         <main className="flex h-screen w-full flex-col bg-[#fcfaee] overflow-hidden pt-16">
             {/* Navigation */}
-            <Navigation onReportMenuClick={openReportModal} />
+            <Navigation onReportMenuClick={openReportModal} onAskAiClick={() => router.push("/ask")} />
 
             {/* Content */}
             <div className="flex flex-1 overflow-hidden relative">
