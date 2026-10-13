@@ -41,7 +41,15 @@ let cache: { records: MenuRecord[]; menus: Record<string, any> } | null = null;
 
 function loadStore() {
     if (cache) return cache;
-    const records: MenuRecord[] = JSON.parse(fs.readFileSync(INDEX_PATH, "utf8")).records;
+    let records: MenuRecord[];
+    try {
+        records = JSON.parse(fs.readFileSync(INDEX_PATH, "utf8")).records;
+    } catch {
+        throw new Error(
+            `RAG index yok (${INDEX_PATH}). Bu makinede local embedding yok — ` +
+                ".env.local'a NVIDIA_API_KEY + ASK_PROVIDER=nvidia ekleyin."
+        );
+    }
     let menus: Record<string, any> = {};
     try {
         menus = JSON.parse(fs.readFileSync(MENUS_PATH, "utf8"));
