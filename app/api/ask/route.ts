@@ -187,7 +187,7 @@ function cloudConfig(provider: "openrouter" | "nvidia") {
     return {
         base: "https://integrate.api.nvidia.com/v1",
         key,
-        model: process.env.ASK_MODEL || "meta/llama-3.1-8b-instruct",
+        model: process.env.ASK_MODEL || "nvidia/nemotron-3.5-lightning-30b-a3b",
         extraHeaders: {} as Record<string, string>,
     };
 }
