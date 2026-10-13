@@ -86,21 +86,109 @@ function stripSourceNames(text: string, names: string[]): string {
         .trim();
 }
 
-// Small models repeat themselves on long menus: drop duplicate lines.
+// Drop exact-duplicate lines (small models repeat themselves).
 function dedupeLines(text: string): string {
+    const lines = text.split("\n");
     const seen = new Set<string>();
     const out: string[] = [];
-    for (const ln of text.split("\n")) {
+    for (let i = 0; i < lines.length; i++) {
+        const ln = lines[i];
         const key = ln.trim().toLowerCase();
         if (!key) {
             if (out.length && out[out.length - 1] !== "") out.push("");
             continue;
         }
+        // generation stutter: line is a strict prefix of the next line
+        const next = (lines[i + 1] || "").trim().toLowerCase();
+        if (next.startsWith(key) && next.length > key.length) continue;
         if (seen.has(key)) continue;
         seen.add(key);
         out.push(ln.trimEnd());
     }
     return out.join("\n").trim();
+}
+
+// Merge "Dish: ..." lines sharing the same dish head (price-aware union),
+// drop bare "Dish:" labels that duplicate a priced line, clean empty ().
+function mergeDishLines(text: string): string {
+    const order: string[] = [];
+    const bucket = new Map<string, { head: string; prices: string[] }>();
+    const others: string[] = [];
+    for (const ln of text.split("\n")) {
+        const m = ln.match(/^([^:]{2,60}?):\s*(.*)$/);
+        if (!m) {
+            others.push(ln);
+            continue;
+        }
+        const head = m[1].trim().replace(/\s*\(\s*\)/g, "");
+        const body = m[2].trim().replace(/\s*\(\s*\)/g, "").replace(/,\s*,/g, ",").replace(/:\s*,/g, ":").replace(/,\s*$/g, "");
+        const key = head.toLowerCase();
+        if (!body) {
+            others.push(`\0BARE\0${key}\0${head}`);
+            continue;
+        }
+        if (!bucket.has(key)) {
+            bucket.set(key, { head, prices: [] });
+            order.push(key);
+        }
+        const entry = bucket.get(key)!;
+        const found = body.match(/\d{1,3},\d{2}\s*€|\?/g) || [];
+        for (const p of found) {
+            const norm = p.replace(/\s+/g, " ");
+            if (!entry.prices.includes(norm)) entry.prices.push(norm);
+        }
+        const rest = body
+            .replace(/\d{1,3},\d{2}\s*€|\?/g, "")
+            .replace(/,\s*,/g, ",")
+            .replace(/^,|,$/g, "")
+            .trim();
+        if (rest && !/^[,;:\s]+$/.test(rest) && !entry.prices.includes(rest)) entry.prices.push(rest);
+    }
+    const priced = new Set(order.filter((k) => bucket.get(k)!.prices.length > 0));
+    const out: string[] = [];
+    for (const ln of others) {
+        if (ln.startsWith("\0BARE\0")) {
+            const [, key] = ln.replace("\0BARE\0", "").split("\0");
+            if (priced.has(key)) continue; // bare dup of a priced dish
+            out.push(ln.split("\0").pop()! + ":");
+            continue;
+        }
+        out.push(ln);
+    }
+    // NOTE: merged dish lines are appended after passthrough lines.
+    const merged = order.map((k) => {
+        const e = bucket.get(k)!;
+        return e.prices.length ? `${e.head}: ${e.prices.join(", ")}` : `${e.head}:`;
+    });
+    return [...out, ...merged]
+        .join("\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+}
+
+// Grouped lines repeat the same price ("8,00 €, 8,00 €, ..."): drop repeat
+// occurrences of a price within a line (German decimals contain commas,
+// so this is price-aware, not comma-split).
+function dedupePrices(text: string): string {
+    return text
+        .split("\n")
+        .map((ln) => {
+            if (!ln.includes("€")) return ln;
+            const seen = new Set<string>();
+            return ln
+                .replace(/(\d{1,3},\d{2}\s*€)/g, (m) => {
+                    const k = m.replace(/\s+/g, " ");
+                    if (seen.has(k)) return "";
+                    seen.add(k);
+                    return m;
+                })
+                .replace(/,\s*,/g, ",")
+                .replace(/:\s*,/g, ":")
+                .replace(/,\s*$/g, "")
+                .replace(/\s{2,}/g, " ")
+                .trim();
+        })
+        .join("\n");
 }
 
 // ---------------------------------------------------------------- local ---
@@ -246,14 +334,12 @@ async function askCloud(
     ).rows as { slug: string; name: string; neighborhood: string; menu_md: string }[];
     if (!rows.length) throw new Error("veritabanında menü yok");
 
-    // Pre-filter: keyword shortlist keeps the prompt small so the model
-    // actually follows the SOURCES instruction. Fall back to all menus
-    // when the question has no keyword overlap (semantic queries).
-    const shortlist = keywordScored(question, rows).filter((x) => x.s > 0);
-    const candidates = (shortlist.length >= 3 ? shortlist : rows.map((r) => ({ r, s: 1 }))).slice(0, 12);
-    const known = new Set(candidates.map((x) => x.r.slug));
-    const context = candidates
-        .map((x) => `### slug: ${x.r.slug} | ${x.r.name}\n${x.r.menu_md}`)
+    // NO pre-filtering: every menu goes to the model so no candidate is
+    // eliminated before the real query. (Keyword scoring is only a safety
+    // net for sources when the model skips the SOURCES line.)
+    const known = new Set(rows.map((r) => r.slug));
+    const context = rows
+        .map((r) => `### slug: ${r.slug} | ${r.name}\n${r.menu_md}`)
         .join("\n\n");
 
     const prompt = [
@@ -264,7 +350,7 @@ async function askCloud(
         "- Only state dishes and prices found in the tables, never invent any.",
         "- Never write the name of any restaurant, even if the question mentions one; refer only to dishes and prices.",
         "- If a price is not in the tables, say you couldn't find it.",
-        "- Group the same dish from different menus into ONE line with all its prices (e.g. 'Halloumi im Brot: 5,50 €, 6,00 €').",
+        "- List each matching dish on its own line as 'Dish: price', copying prices exactly as shown. At most 15 lines.",
         "- Skip table rows with unknown (?) prices.",
         "REQUIRED FIRST LINE: start your reply with exactly:",
         'SOURCES: ["menu-slug-1", "menu-slug-2"]',
@@ -280,7 +366,7 @@ async function askCloud(
         model: cfg.model,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.2,
-        max_tokens: 1024,
+        max_tokens: 2048,
     };
     if (provider === "nvidia") {
         // nemotron thinks by default (answer lands in reasoning_content);
@@ -309,7 +395,7 @@ async function askCloud(
     // Strip EVERY known restaurant name (not just top hits): "where" answers
     // otherwise smuggle source names back into the text.
     const allNames = rows.map((r) => r.name);
-    const cleanAnswer = dedupeLines(stripSourceNames(answer, allNames));
+    const cleanAnswer = mergeDishLines(dedupeLines(dedupePrices(stripSourceNames(answer, allNames))));
     let sources: Source[] = slugs.map((slug, i) => ({
         id: slug,
         title: bySlug.get(slug)!.name,
@@ -317,14 +403,9 @@ async function askCloud(
         score: Number((0.9 - i * 0.1).toFixed(2)),
     }));
     if (!sources.length) {
-        // Model skipped the SOURCES line: use the keyword shortlist order
-        // so the map/cards still get results.
-        sources = candidates.slice(0, TOP_K).map((x, i) => ({
-            id: x.r.slug,
-            title: x.r.name,
-            neighborhood: x.r.neighborhood,
-            score: Number((0.5 - i * 0.1).toFixed(2)),
-        }));
+        // Model skipped the SOURCES line: keyword fallback over ALL rows
+        // so the map/cards still get results (never filters the answer).
+        sources = keywordFallback(question, rows);
     }
     return { answer: cleanAnswer || "(empty answer)", sources };
 }
