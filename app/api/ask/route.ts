@@ -64,6 +64,18 @@ function tableOf(menus: Record<string, any>, id: string): string {
     return "";
 }
 
+const MATCH_HEADER = "The places matching your query are listed below:";
+
+function withHeader(result: { answer: string; sources: Source[] }): {
+    answer: string;
+    sources: Source[];
+} {
+    if (result.sources.length && result.answer) {
+        return { ...result, answer: `${MATCH_HEADER}\n\n${result.answer}` };
+    }
+    return result;
+}
+
 // The agent must not name its sources: strip top-hit restaurant names
 // (incl. "at <name>" phrasing and markdown-bold variants) from the answer.
 function stripSourceNames(text: string, names: string[]): string {
@@ -264,7 +276,7 @@ async function askLocal(
     const data = await res.json();
     let answer = String(data.message?.content || "").trim() || "(empty answer)";
     answer = stripSourceNames(answer, top.map(({ r }) => r.title));
-    return {
+    return withHeader({
         answer,
         sources: top.map(({ r, best }) => ({
             id: r.id,
@@ -272,7 +284,7 @@ async function askLocal(
             neighborhood: r.neighborhood,
             score: Number(best.toFixed(4)),
         })),
-    };
+    });
 }
 
 // ---------------------------------------------------------------- cloud ---
@@ -407,7 +419,7 @@ async function askCloud(
         // so the map/cards still get results (never filters the answer).
         sources = keywordFallback(question, rows);
     }
-    return { answer: cleanAnswer || "(empty answer)", sources };
+    return withHeader({ answer: cleanAnswer || "(empty answer)", sources });
 }
 
 const STOP = new Set(
