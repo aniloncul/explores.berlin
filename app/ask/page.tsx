@@ -165,7 +165,9 @@ export default function Page() {
         try {
             const fd = new FormData();
             fd.append("placeTitle", reportForm.placeTitle.trim());
-            fd.append("placeSlug", reportForm.placeSlug.trim());
+            const slug = reportForm.placeSlug.trim()
+                || reportForm.placeTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+            fd.append("placeSlug", slug);
             fd.append("message", message);
             fd.append("email", reportForm.email.trim());
             reportImages.forEach(f => fd.append("image", f));
@@ -313,6 +315,30 @@ export default function Page() {
     };
 
     const focusAskInput = () => askInputRef.current?.focus();
+
+    // Report modal: place autocomplete from loaded locations
+    const placeSuggestions = useMemo(() => {
+        const q = reportForm.placeTitle.trim().toLowerCase();
+        if (q.length < 2) return [];
+        const seen = new Set<string>();
+        const out: Location[] = [];
+        for (const l of locations) {
+            const t = (l.title || "").toLowerCase();
+            if (!t.includes(q) || t === q || seen.has(t)) continue;
+            seen.add(t);
+            out.push(l);
+            if (out.length >= 6) break;
+        }
+        return out;
+    }, [reportForm.placeTitle, locations]);
+
+    const selectSuggestedPlace = (loc: Location) => {
+        setReportForm(prev => ({
+            ...prev,
+            placeTitle: loc.title,
+            placeSlug: loc.id.replace(/^(rest|bar|cafe)-/, ""),
+        }));
+    };
 
     // RAG hits (rank order) mapped onto full Location objects
     const matchedLocations = useMemo(() => {
@@ -581,21 +607,48 @@ export default function Page() {
 
                                 <div className="flex flex-col gap-1">
                                     <label className="font-bold text-black uppercase tracking-wider">Place</label>
-                                    <input
-                                        type="text"
-                                        value={reportForm.placeTitle}
-                                        onChange={e => setReportForm(prev => ({
-                                            ...prev,
-                                            placeTitle: e.target.value,
-                                            placeSlug: e.target.value
-                                                ? prev.placeSlug || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
-                                                : "",
-                                        }))}
-                                        placeholder="E.G. HAKIKI DÖNER NEUKÖLLN"
-                                        className="border-2 border-black p-3 bg-white text-black outline-none focus:bg-[#fffdf4] text-sm"
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            value={reportForm.placeTitle}
+                                            onChange={e => {
+                                                const v = e.target.value;
+                                                const exact = locations.find(l => l.title.toLowerCase() === v.trim().toLowerCase());
+                                                setReportForm(prev => ({
+                                                    ...prev,
+                                                    placeTitle: v,
+                                                    placeSlug: exact
+                                                        ? exact.id.replace(/^(rest|bar|cafe)-/, "")
+                                                        : "",
+                                                }));
+                                            }}
+                                            placeholder="E.G. HAKIKI DÖNER NEUKÖLLN"
+                                            className="w-full border-2 border-black p-3 bg-white text-black outline-none focus:bg-[#fffdf4] text-sm"
+                                            autoComplete="off"
+                                        />
+                                        {placeSuggestions.length > 0 && (
+                                            <ul className="absolute z-10 left-0 right-0 top-full mt-1 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] max-h-48 overflow-y-auto">
+                                                {placeSuggestions.map(loc => (
+                                                    <li key={loc.id}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => selectSuggestedPlace(loc)}
+                                                            className="w-full text-left px-3 py-2 hover:bg-sky-400/30 flex flex-col gap-0.5"
+                                                        >
+                                                            <span className="font-bold text-black text-sm">{loc.title}</span>
+                                                            <span className="text-[10px] uppercase text-black/50">
+                                                                {[loc.mainCategory, loc.neighborhood].filter(Boolean).join(" · ") || loc.id}
+                                                            </span>
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
                                     <span className="text-[10px] text-black/50 uppercase">
-                                        Auto-filled if a place is selected on the map
+                                        {reportForm.placeSlug
+                                            ? `Linked: ${reportForm.placeSlug}`
+                                            : "New place? Just type its name."}
                                     </span>
                                 </div>
 
