@@ -18,6 +18,17 @@ require("dotenv").config({ path: path.resolve(__dirname, "../.env.local") });
 
 const VAULT = process.env.OBSIDIAN_VAULT_PATH || "/Volumes/2TBSSD/data/berlin-menus";
 
+function markVaultReport(id, status) {
+    try {
+        const p = path.join(VAULT, "reports", `report-${id}.md`);
+        if (!fs.existsSync(p)) return;
+        const text = fs.readFileSync(p, "utf8");
+        fs.writeFileSync(p, text.replace(/^status:.*$/m, `status: ${status}`));
+    } catch (e) {
+        console.error("vault report mark failed:", e.message);
+    }
+}
+
 function syncVaultNoteMenu(slug, flatTable) {
     // Find places/**/<slug>.md, replace its ## Menu block. Returns note path or null.
     const { execFileSync } = require("child_process");
@@ -68,6 +79,7 @@ async function main() {
         const r = rows[0];
         if (reject) {
             await pool.query("UPDATE menu_reports SET status='rejected', updated_at=NOW() WHERE id=$1", [id]);
+            markVaultReport(id, "rejected");
             console.log(`#${id} rejected`);
             await tgSend(`❌ <b>Report #${id} rejected</b> — nothing changed.`);
             return;
@@ -109,6 +121,7 @@ async function main() {
         } catch (e) {
             console.error("vault sync failed:", e.message);
         }
+        markVaultReport(id, "applied");
         await tgSend(`✅ <b>Report #${id} applied</b> → ${target.name} menu updated. Ask AI serves it now.`);
     } finally {
         await pool.end();

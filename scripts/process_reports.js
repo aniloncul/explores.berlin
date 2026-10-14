@@ -449,17 +449,125 @@ function writeReportMd(r, pagesMd, jpegBufs) {
     return `reports/report-${r.id}.md`;
 }
 
-async function tgSend(text) {
+async function tgSend(text, replyMarkup) {
     if (!TG_TOKEN || !TG_CHAT) {
         console.log("  (telegram skipped: env missing)");
         return;
     }
+    const payload = { chat_id: TG_CHAT, text: text.slice(0, 4000), parse_mode: "HTML" };
+    if (replyMarkup) payload.reply_markup = replyMarkup;
     const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chat_id: TG_CHAT, text: text.slice(0, 4000), parse_mode: "HTML" }),
+        body: JSON.stringify(payload),
     });
     if (!res.ok) console.error("  telegram error:", (await res.text()).slice(0, 200));
+}
+
+function approvalKeyboard(reportId) {
+    return {
+        inline_keyboard: [[
+            { text: "✅ Approve", callback_data: `approve:${reportId}` },
+            { text: "❌ Reject", callback_data: `reject:${reportId}` },
+        ]],
+    };
+}
+
+// --- Telegram inbox: owner taps Approve/Reject (or types /approve N) ---
+async function tgApi(method, body) {
+    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/${method}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000),
+    });
+    return res.json().catch(() => ({}));
+}
+
+async function runApproveChild(reportId, mode) {
+    const { spawnSync } = require("child_process");
+    const args = [path.join(__dirname, "approve_report.js"), String(reportId)];
+    if (mode === "reject") args.push("--reject");
+    const r = spawnSync(process.execPath, args, {
+        cwd: path.join(__dirname, ".."),
+        encoding: "utf8",
+        timeout: 120000,
+    });
+    const out = ((r.stdout || "") + (r.stderr || "")).slice(-500);
+    if (r.status !== 0) throw new Error(`approve child failed: ${out || r.error}`);
+    return out;
+}
+
+async function handleTgUpdate(u) {
+    const owner = String(TG_CHAT);
+    if (u.callback_query) {
+        const cb = u.callback_query;
+        if (String(cb.from?.id) !== owner) return; // owner's taps only
+        const m = String(cb.data || "").match(/^(approve|reject):(\d+)$/);
+        if (!m) return;
+        const [, mode, id] = m;
+        try {
+            await runApproveChild(id, mode);
+            await tgApi("answerCallbackQuery", {
+                callback_query_id: cb.id,
+                text: mode === "approve" ? `Report #${id} applied ✅` : `Report #${id} rejected`,
+            });
+            // Remove buttons so it can't be tapped twice
+            if (cb.message) {
+                await tgApi("editMessageReplyMarkup", {
+                    chat_id: cb.message.chat.id,
+                    message_id: cb.message.message_id,
+                    reply_markup: { inline_keyboard: [] },
+                }).catch(() => {});
+            }
+        } catch (e) {
+            await tgApi("answerCallbackQuery", {
+                callback_query_id: cb.id,
+                text: `Failed: ${String(e.message).slice(0, 150)}`,
+                show_alert: true,
+            });
+        }
+        return;
+    }
+    const msg = u.message;
+    if (msg && String(msg.from?.id) === owner && msg.text) {
+        const m = msg.text.trim().match(/^\/(approve|reject)[@\w]*\s+(\d+)/);
+        if (!m) return;
+        try {
+            await runApproveChild(m[2], m[1]);
+        } catch (e) {
+            await tgSend(`⚠️ <b>/${m[1]} ${m[2]} failed:</b> ${escapeHtml(String(e.message).slice(0, 300))}`);
+        }
+    }
+}
+
+async function checkTelegramInbox() {
+    if (!TG_TOKEN || !TG_CHAT) return;
+    const offFile = path.join(__dirname, "..", "tmp_reports", ".tg_offset");
+    let offset = 0;
+    try { offset = parseInt(fs.readFileSync(offFile, "utf8"), 10) || 0; } catch {}
+    let data;
+    try {
+        const res = await fetch(
+            `https://api.telegram.org/bot${TG_TOKEN}/getUpdates?offset=${offset}&timeout=0`,
+            { signal: AbortSignal.timeout(30000) }
+        );
+        data = await res.json();
+    } catch (e) {
+        console.error("  inbox check failed:", e.message);
+        return;
+    }
+    const updates = data.ok ? data.result || [] : [];
+    if (!updates.length) return;
+    console.log(`  inbox: ${updates.length} update(s)`);
+    for (const u of updates) {
+        offset = Math.max(offset, (u.update_id || 0) + 1);
+        try { await handleTgUpdate(u); } catch (e) { console.error("  inbox item failed:", e.message); }
+    }
+    try {
+        fs.mkdirSync(path.dirname(offFile), { recursive: true });
+        fs.writeFileSync(offFile, String(offset));
+    } catch {}
 }
 
 async function main() {
@@ -471,8 +579,22 @@ async function main() {
     });
     // Idle connections die during long VLM runs — swallow, pool reconnects.
     pool.on("error", (e) => console.error("  (pool) " + String(e.message).split("\n")[0]));
+    // Query with one retry on server-killed connections.
+    const q = async (text, params) => {
+        try {
+            return await pool.query(text, params);
+        } catch (e) {
+            if (/terminat|connection.*(reset|closed|timeout)|idle-session/i.test(String(e && e.message))) {
+                console.log("  (retrying killed query…)");
+                await new Promise((r) => setTimeout(r, 1500));
+                return pool.query(text, params);
+            }
+            throw e;
+        }
+    };
+    await checkTelegramInbox();
     try {
-        await pool.query(`
+        await q(`
             ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS suggested_menu_md TEXT;
             ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
             ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS processing_error TEXT;
@@ -484,7 +606,7 @@ async function main() {
             // 'new' + stale 'processing' left by a crashed Vercel cron run
             statusFilter = "(status = $1 OR (status = 'processing' AND updated_at < NOW() - INTERVAL '1 hour'))"; where = ONLY_ID ? "AND id = $2" : ""; params = ONLY_ID ? ["new", ONLY_ID] : ["new"];
         }
-        const { rows } = await pool.query(
+        const { rows } = await q(
             `SELECT id, place_slug, place_title, message, email, image_mime, image_bytes, image_name
              FROM menu_reports WHERE ${statusFilter} ${where} ORDER BY id LIMIT ${LIMIT}`,
             params
@@ -495,7 +617,7 @@ async function main() {
             // All photos: new side table first, legacy single column as fallback
             let raws = [];
             try {
-                const imgs = await pool.query(
+                const imgs = await q(
                     "SELECT image_mime, image_bytes, image_name FROM menu_report_images WHERE report_id=$1 ORDER BY position",
                     [r.id]
                 );
@@ -509,16 +631,16 @@ async function main() {
             // current menu for context
             let current = null;
             if (r.place_slug) {
-                const cur = await pool.query("SELECT menu_md FROM places WHERE slug = $1", [r.place_slug]);
+                const cur = await q("SELECT menu_md FROM places WHERE slug = $1", [r.place_slug]);
                 if (cur.rowCount) current = cur.rows[0].menu_md;
             }
             if (!current && r.place_title) {
-                const cur = await pool.query("SELECT menu_md FROM places WHERE name ILIKE $1 LIMIT 1", [`%${r.place_title}%`]);
+                const cur = await q("SELECT menu_md FROM places WHERE name ILIKE $1 LIMIT 1", [`%${r.place_title}%`]);
                 if (cur.rowCount) current = cur.rows[0].menu_md;
             }
 
             if (!hasImage) {
-                await pool.query(
+                await q(
                     "UPDATE menu_reports SET status='text-only', processed_at=NOW(), updated_at=NOW() WHERE id=$1",
                     [r.id]
                 );
@@ -579,7 +701,7 @@ async function main() {
                 } catch (e) {
                     console.error("  vault write failed:", e.message);
                 }
-                await pool.query(
+                await q(
                     `UPDATE menu_reports SET suggested_menu_md=$1, status='suggested',
                      processed_at=NOW(), updated_at=NOW(), processing_error=NULL WHERE id=$2`,
                     [table, r.id]
@@ -591,14 +713,14 @@ async function main() {
                     `photos: ${raws.length}, pages: ${pages}, rows: ${oldN} → ${newN}` +
                     (r.message ? `\nnote: ${escapeHtml(r.message.trim()).slice(0, 300)}` : "") +
                     (vaultPath ? `\nvault: <code>${escapeHtml(vaultPath)}</code>` : "") +
-                    `\n\n<pre>${escapeHtml(table).slice(0, 2800)}</pre>\n` +
-                    `<i>Approve: node scripts/approve_report.js ${r.id}</i>`
+                    `\n\n<pre>${escapeHtml(table).slice(0, 2800)}</pre>`,
+                    approvalKeyboard(r.id)
                 );
                 console.log(`  suggested (${oldN} -> ${newN} rows, ${pages} pages), preview sent`);
             } catch (e) {
                 console.error(`  FAILED: ${e.message}`);
                 if (DRY_RUN) continue; // never write in dry-run
-                await pool.query(
+                await q(
                     "UPDATE menu_reports SET status='error', processed_at=NOW(), updated_at=NOW(), processing_error=$1 WHERE id=$2",
                     [String(e.message).slice(0, 1000), r.id]
                 );
