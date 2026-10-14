@@ -498,7 +498,7 @@ async function runApproveChild(reportId, mode) {
     return out;
 }
 
-async function handleTgUpdate(u) {
+async function handleTgUpdate(u, pool) {
     const owner = String(TG_CHAT);
     if (u.callback_query) {
         const cb = u.callback_query;
@@ -507,6 +507,18 @@ async function handleTgUpdate(u) {
         if (!m) return;
         const [, mode, id] = m;
         try {
+            // Guard: already decided → just acknowledge, don't re-run
+            if (pool) {
+                const cur = await pool.query("SELECT status FROM menu_reports WHERE id=$1", [id]);
+                const st = cur.rows[0]?.status;
+                if (st === "applied" || st === "rejected") {
+                    await tgApi("answerCallbackQuery", {
+                        callback_query_id: cb.id,
+                        text: `Report #${id} already ${st} ✅`,
+                    });
+                    return;
+                }
+            }
             await runApproveChild(id, mode);
             await tgApi("answerCallbackQuery", {
                 callback_query_id: cb.id,
@@ -541,7 +553,7 @@ async function handleTgUpdate(u) {
     }
 }
 
-async function checkTelegramInbox() {
+async function checkTelegramInbox(pool) {
     if (!TG_TOKEN || !TG_CHAT) return;
     const offFile = path.join(__dirname, "..", "tmp_reports", ".tg_offset");
     let offset = 0;
@@ -562,7 +574,7 @@ async function checkTelegramInbox() {
     console.log(`  inbox: ${updates.length} update(s)`);
     for (const u of updates) {
         offset = Math.max(offset, (u.update_id || 0) + 1);
-        try { await handleTgUpdate(u); } catch (e) { console.error("  inbox item failed:", e.message); }
+        try { await handleTgUpdate(u, pool); } catch (e) { console.error("  inbox item failed:", e.message); }
     }
     try {
         fs.mkdirSync(path.dirname(offFile), { recursive: true });
@@ -592,7 +604,11 @@ async function main() {
             throw e;
         }
     };
-    await checkTelegramInbox();
+    await checkTelegramInbox(pool);
+    if (process.argv.includes("--inbox-only")) {
+        await pool.end();
+        return; // lightweight 1-min cron: buttons only, no VLM
+    }
     try {
         await q(`
             ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS suggested_menu_md TEXT;
