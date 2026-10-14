@@ -91,7 +91,7 @@ export default function Page() {
     });
     const [reportImages, setReportImages] = useState<File[]>([]);
     const [reportImagePreviews, setReportImagePreviews] = useState<string[]>([]);
-    const MAX_REPORT_IMAGES = 5;
+    const MAX_REPORT_IMAGES = 10;
 
     const openReportModal = () => {
         const active = locations.find(l => l.id === (selectedId || hoveredId));

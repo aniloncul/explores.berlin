@@ -197,13 +197,14 @@ async function toJpeg(buf) {
 // makes some readers rotate a second time). PIL-based: deterministic.
 async function normalizeOrientation(jpegBuf) {
     const { execFileSync } = require("child_process");
+    const PY = process.env.PIL_PYTHON || "python3";
     const tmpIn = path.join(os.tmpdir(), `nrm_${Date.now()}.jpg`);
     fs.writeFileSync(tmpIn, jpegBuf);
     try {
-        const out = execFileSync("python3", ["-c",
+        const out = execFileSync(PY, ["-c",
             "import sys;from PIL import Image,ImageOps;" +
             "im=Image.open(sys.argv[1]);im=ImageOps.exif_transpose(im);" +
-            "im.save(sys.argv[2],'JPEG',quality=90)",
+            "im=im.convert('RGB');im.save(sys.argv[2],'JPEG',quality=90)",
             tmpIn, tmpIn + ".out.jpg"], { encoding: "utf8", timeout: 60000 });
         return fs.readFileSync(tmpIn + ".out.jpg");
     } catch (e) {
@@ -254,17 +255,19 @@ function mergeCropTables(tables) {
     return merged.length > 2 ? merged.join("\n") : null;
 }
 
-function multiPreamble(n) {
-    return n > 1
-        ? `\n\nThe attached ${n} photos are pages of the SAME menu, in order. ` +
-          `Merge them into ONE combined table (dedupe items appearing twice).`
-        : "";
+function multiPreamble(n, start, total) {
+    if (total <= 1) return "";
+    const end = start + n - 1;
+    return `\n\nThe attached ${n} photo(s) are pages ${start}..${end} of a ${total}-photo menu, in order. ` +
+        `Start each photo's part with its exact page heading ("### Page ${start}", etc). ` +
+        `Merge nothing across photos.`;
 }
 
-async function askVlm(jpegBufs, extraContext) {
+async function askVlm(jpegBufs, extraContext, pageStart, pageTotal) {
+    const ps = pageStart || 1, pt = pageTotal || jpegBufs.length;
     const content = extraContext
-        ? `${BASE_PROMPT}${multiPreamble(jpegBufs.length)}\n\n${extraContext}`
-        : `${BASE_PROMPT}${multiPreamble(jpegBufs.length)}`;
+        ? `${BASE_PROMPT}${multiPreamble(jpegBufs.length, ps, pt)}\n\n${extraContext}`
+        : `${BASE_PROMPT}${multiPreamble(jpegBufs.length, ps, pt)}`;
     if (VLM_PROVIDER === "cloud") return askVlmCloud(jpegBufs, content);
     if (VLM_PROVIDER === "zen") return askVlmZen(jpegBufs, content);
     if (VLM_PROVIDER === "opencode") return askVlmOpencode(jpegBufs, content);
@@ -547,10 +550,19 @@ async function main() {
                 ].filter(Boolean).join("\n\n");
                 const engine = VLM_PROVIDER === "cloud" ? VLM_CLOUD_MODEL : VLM_PROVIDER === "zen" ? `zen/${ZEN_MODEL}` : VLM_PROVIDER === "opencode" ? `opencode/${OPENCODE_MODEL}` : VLM_MODEL;
                 console.log(`  asking ${engine}…`);
-                const raw = await askVlm(jpegBufs, ctx);
-                const pagesMd = cleanTable(raw);
+                // Batch large photo sets (context safety), renumber pages globally
+                const BATCH = parseInt(process.env.VLM_BATCH || "4", 10);
+                let pageNo = 1;
+                const batchOuts = [];
+                for (let b = 0; b < jpegBufs.length; b += BATCH) {
+                    const chunk = jpegBufs.slice(b, b + BATCH);
+                    console.log(`  batch ${Math.floor(b / BATCH) + 1}/${Math.ceil(jpegBufs.length / BATCH)} (${chunk.length} photos)…`);
+                    const out = await askVlm(chunk, ctx, pageNo, jpegBufs.length);
+                    batchOuts.push(out.replace(/^### Page \d+/gm, () => `### Page ${pageNo++}`));
+                }
+                const pagesMd = cleanTable(batchOuts.join("\n"));
                 if (!pagesMd) {
-                    throw new Error("no valid table in VLM reply: " + raw.slice(0, 200));
+                    throw new Error("no valid table in VLM reply: " + batchOuts.join("\n").slice(0, 200));
                 }
                 const table = flattenTable(pagesMd);
                 if (!table) {

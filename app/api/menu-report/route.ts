@@ -4,7 +4,7 @@ import { query } from "@/lib/db";
 export const runtime = "nodejs";
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB per photo
-const MAX_IMAGES = 5;
+const MAX_IMAGES = 10;
 const MAX_MESSAGE = 4000;
 
 type ReportImage = { name: string; mime: string; bytes: Buffer };
