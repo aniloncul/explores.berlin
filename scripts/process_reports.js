@@ -374,7 +374,8 @@ async function main() {
         if (ONLY_ID && FORCE) {
             statusFilter = "TRUE"; where = "AND id = $1"; params = [ONLY_ID];
         } else {
-            statusFilter = "status = $1"; where = ONLY_ID ? "AND id = $2" : ""; params = ONLY_ID ? ["new", ONLY_ID] : ["new"];
+            // 'new' + stale 'processing' left by a crashed Vercel cron run
+            statusFilter = "(status = $1 OR (status = 'processing' AND updated_at < NOW() - INTERVAL '1 hour'))"; where = ONLY_ID ? "AND id = $2" : ""; params = ONLY_ID ? ["new", ONLY_ID] : ["new"];
         }
         const { rows } = await pool.query(
             `SELECT id, place_slug, place_title, message, email, image_mime, image_bytes, image_name
