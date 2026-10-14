@@ -452,6 +452,7 @@ async function main() {
                 console.log(`  suggested (${oldN} -> ${newN} rows), preview sent`);
             } catch (e) {
                 console.error(`  FAILED: ${e.message}`);
+                if (DRY_RUN) continue; // never write in dry-run
                 await pool.query(
                     "UPDATE menu_reports SET status='error', processed_at=NOW(), updated_at=NOW(), processing_error=$1 WHERE id=$2",
                     [String(e.message).slice(0, 1000), r.id]
