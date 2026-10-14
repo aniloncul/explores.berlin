@@ -142,6 +142,18 @@ export async function POST(req: Request) {
                 imageMime = f.type || "image/jpeg";
                 imageName = (f.name || "menu.jpg").slice(0, 255);
                 imageBytes = buf;
+
+                // iPhone HEIC → JPEG (Telegram sendPhoto HEIC kabul etmez)
+                if (/heic|heif/i.test(imageMime) || /\.hei[c|f]$/i.test(imageName)) {
+                    try {
+                        const sharp = (await import("sharp")).default;
+                        imageBytes = await sharp(buf).jpeg({ quality: 85 }).toBuffer();
+                        imageMime = "image/jpeg";
+                        imageName = imageName.replace(/\.hei[c|f]$/i, ".jpg");
+                    } catch (e: any) {
+                        console.error("HEIC convert failed, storing original:", e?.message);
+                    }
+                }
             }
         } else {
             const body = await req.json();
