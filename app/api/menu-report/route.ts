@@ -121,9 +121,15 @@ function ensureSchema() {
             image_name VARCHAR(255),
             status VARCHAR(50) DEFAULT 'new',
             created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
+            updated_at TIMESTAMPTZ DEFAULT NOW(),
+            suggested_menu_md TEXT,
+            processed_at TIMESTAMPTZ,
+            processing_error TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_menu_reports_created ON menu_reports(created_at DESC);
+        ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS suggested_menu_md TEXT;
+        ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
+        ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS processing_error TEXT;
     `);
 }
 
