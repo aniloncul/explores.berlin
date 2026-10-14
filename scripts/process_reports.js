@@ -68,8 +68,10 @@ Rules:
 - A ? price is only allowed for a real dish or drink whose name you can read
   clearly. If a line has no readable item name, skip it, do not emit it.
 - Never use bold (**) or any other markdown formatting inside the table.
+- If several photos were given, start each photo's part with a "### Page N"
+  heading line, then its table. Do not merge pages.
 - Output the table directly with no analysis.
-- Output only the markdown table. No commentary, no code fences.`;
+- Output only headings + markdown table(s). No commentary, no code fences.`;
 
 function normPrice(raw) {
     let p = String(raw).replace(/\s+/g, " ").trim();
@@ -84,38 +86,67 @@ function normPrice(raw) {
 }
 
 function cleanTable(raw) {
+    // Keeps "### ..." section/page headings, validates "|" rows.
+    // Returns markdown (headings + one header + rows) or null.
     const text = String(raw || "").replace(/```/g, "");
-    const lines = text.split("\n").map((l) => l.trimEnd()).filter((l) => l.trim().startsWith("|"));
-    if (lines.length < 3) return null;
+    const lines = text.split("\n").map((l) => l.trimEnd());
+    let out = [];
     let rows = [];
+    let headerSeen = false;
+    const flushRows = () => {
+        if (!rows.length) return;
+        if (!headerSeen) {
+            out.push("| Item | Price |", "|------|-------|");
+            headerSeen = true;
+        }
+        // dedup identical rows, keep first occurrence
+        const seen = new Set(out.map((l) => l.toLowerCase()));
+        for (const r of rows) {
+            if (!seen.has(r.toLowerCase())) {
+                seen.add(r.toLowerCase());
+                out.push(r);
+            }
+        }
+        rows = [];
+    };
     for (const ln of lines) {
-        if (ln.includes("**")) continue; // bold = section header artifact, never a dish
-        const cells = ln.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+        const t = ln.trim();
+        if (t.startsWith("### ")) {
+            flushRows();
+            out.push(t.replace(/\s+/g, " ").trim());
+            continue;
+        }
+        if (!t.startsWith("|") || t.includes("**")) continue;
+        const cells = t.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
         if (cells.length < 2) continue;
         const [item, price] = cells;
         if (/^[-:\s]+$/.test(item) || /^[-:\s]+$/.test(price)) continue;
-        if (item.toLowerCase() === "item" && price.toLowerCase() === "price") {
-            rows = ["| Item | Price |", "|------|-------|"];
-            continue;
-        }
+        if (item.toLowerCase() === "item" && price.toLowerCase() === "price") continue;
         const norm = normPrice(price.replace(/\s+/g, " "));
         if (norm === null) continue;
         const cleanItem = item.replace(/\s+/g, " ").trim();
         if (cleanItem) rows.push(`| ${cleanItem} | ${norm} |`);
     }
-    if (rows.length < 3) return null;
-    // dedup: menus repeat the same board; keep first occurrence of identical rows
+    flushRows();
+    const realRows = out.filter((l) => l.startsWith("|") && !/^\|\s*item\s*\|/i.test(l) && !l.includes("---"));
+    if (!realRows.length) return null;
+    return out.join("\n");
+}
+
+// Flat single table for places.menu_md: drop headings, dedup.
+function flattenTable(md) {
+    if (!md) return null;
+    const rows = ["| Item | Price |", "|------|-------|"];
     const seen = new Set();
-    const deduped = [];
-    for (const r of rows) {
-        if (!r.startsWith("| Item")) {
-            const key = r.toLowerCase();
-            if (seen.has(key)) continue;
-            seen.add(key);
-        }
-        deduped.push(r);
+    for (const ln of md.split("\n")) {
+        const t = ln.trim();
+        if (!t.startsWith("|") || /^\|\s*item\s*\|/i.test(t) || t.includes("---")) continue;
+        const key = t.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        rows.push(t);
     }
-    return deduped.join("\n");
+    return rows.length > 2 ? rows.join("\n") : null;
 }
 
 function countRows(table) {
@@ -223,14 +254,27 @@ function mergeCropTables(tables) {
     return merged.length > 2 ? merged.join("\n") : null;
 }
 
-async function askVlm(jpegBuf, extraContext) {
-    const content = extraContext ? `${BASE_PROMPT}\n\n${extraContext}` : BASE_PROMPT;
-    if (VLM_PROVIDER === "cloud") return askVlmCloud(jpegBuf, content);
-    if (VLM_PROVIDER === "zen") return askVlmZen(jpegBuf, content);
-    if (VLM_PROVIDER === "opencode") return askVlmOpencode(jpegBuf, content);
+function multiPreamble(n) {
+    return n > 1
+        ? `\n\nThe attached ${n} photos are pages of the SAME menu, in order. ` +
+          `Merge them into ONE combined table (dedupe items appearing twice).`
+        : "";
+}
+
+async function askVlm(jpegBufs, extraContext) {
+    const content = extraContext
+        ? `${BASE_PROMPT}${multiPreamble(jpegBufs.length)}\n\n${extraContext}`
+        : `${BASE_PROMPT}${multiPreamble(jpegBufs.length)}`;
+    if (VLM_PROVIDER === "cloud") return askVlmCloud(jpegBufs, content);
+    if (VLM_PROVIDER === "zen") return askVlmZen(jpegBufs, content);
+    if (VLM_PROVIDER === "opencode") return askVlmOpencode(jpegBufs, content);
     // local path: downscale for speed/context
     const sharp = (await import("sharp")).default;
-    const small = await sharp(jpegBuf).resize(2048, 2048, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 88 }).toBuffer();
+    const images = [];
+    for (const b of jpegBufs) {
+        const small = await sharp(b).resize(2048, 2048, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 88 }).toBuffer();
+        images.push(small.toString("base64"));
+    }
     const res = await fetch(`${OLLAMA}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -238,7 +282,7 @@ async function askVlm(jpegBuf, extraContext) {
             model: VLM_MODEL,
             stream: false,
             think: VLM_THINK,
-            messages: [{ role: "user", content, images: [small.toString("base64")] }],
+            messages: [{ role: "user", content, images }],
             options: { temperature: 0, num_ctx: VLM_CTX, num_predict: VLM_PREDICT },
         }),
         signal: AbortSignal.timeout(1200_000),
@@ -248,31 +292,43 @@ async function askVlm(jpegBuf, extraContext) {
     return data.message?.content || "";
 }
 
-async function askVlmOpencode(jpegBuf, content) {
-    // Headless opencode run: image must live inside the workspace (/tmp is blocked).
+async function askVlmOpencode(jpegBufs, content) {
+    // Headless opencode run: images must live inside the workspace (/tmp is blocked).
     const { execFileSync } = require("child_process");
     const dir = path.join(__dirname, "..", "tmp_reports");
     fs.mkdirSync(dir, { recursive: true });
-    const imgPath = path.join(dir, `rep_${Date.now()}.jpg`);
+    const stamp = Date.now();
+    const paths = [];
     try {
-        fs.writeFileSync(imgPath, jpegBuf);
-        const rel = path.relative(path.join(__dirname, ".."), imgPath);
+        const fileArgs = [];
+        jpegBufs.forEach((b, i) => {
+            const imgPath = path.join(dir, `rep_${stamp}_${i}.jpg`);
+            fs.writeFileSync(imgPath, b);
+            paths.push(imgPath);
+            fileArgs.push("-f", path.relative(path.join(__dirname, ".."), imgPath));
+        });
         const out = execFileSync(
             OPENCODE_BIN,
-            ["run", `${content}\n\nMenu photo: ${rel} — it is already upright, do not rotate it. ` +
-             `Read only this file and work only inside the project directory.`,
-             "-m", OPENCODE_MODEL],
-            { encoding: "utf8", timeout: 600_000, maxBuffer: 4 * 1024 * 1024 }
+            ["run", `${content}\n\nMenu photo(s): read them in the given order — already upright, do not rotate. ` +
+             `Do NOT use any tools, do NOT run any commands, do NOT inspect files. ` +
+             `Just read the images and reply with the transcription. ` +
+             `Work only inside the project directory.`,
+             "-m", OPENCODE_MODEL, ...fileArgs],
+            { encoding: "utf8", timeout: 600_000, maxBuffer: 8 * 1024 * 1024 }
         );
         return out;
     } finally {
-        try { fs.unlinkSync(imgPath); } catch {}
+        for (const p of paths) { try { fs.unlinkSync(p); } catch {} }
     }
 }
 
-async function askVlmZen(jpegBuf, content) {
+async function askVlmZen(jpegBufs, content) {
     const key = process.env.OPENCODE_API_KEY;
     if (!key) throw new Error("OPENCODE_API_KEY missing for zen VLM");
+    const blocks = [{ type: "text", text: content }];
+    for (const b of jpegBufs) {
+        blocks.push({ type: "image_url", image_url: { url: "data:image/jpeg;base64," + b.toString("base64") } });
+    }
     const res = await fetch(`${ZEN_API}/chat/completions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
@@ -280,10 +336,7 @@ async function askVlmZen(jpegBuf, content) {
             model: ZEN_MODEL,
             messages: [{
                 role: "user",
-                content: [
-                    { type: "text", text: content },
-                    { type: "image_url", image_url: { url: "data:image/jpeg;base64," + jpegBuf.toString("base64") } },
-                ],
+                content: blocks,
             }],
             temperature: 0,
             max_tokens: 4000,
@@ -295,10 +348,14 @@ async function askVlmZen(jpegBuf, content) {
     return data.choices?.[0]?.message?.content || "";
 }
 
-async function askVlmCloud(jpegBuf, content) {
+async function askVlmCloud(jpegBufs, content) {
     const key = process.env.NVIDIA_API_KEY;
     if (!key) throw new Error("NVIDIA_API_KEY missing for cloud VLM");
-    const callOne = async (b64, extra) => {
+    const callOne = async (b64s, extra) => {
+        const blocks = [{ type: "text", text: extra ? `${content}\n\n${extra}` : content }];
+        for (const b64 of b64s) {
+            blocks.push({ type: "image_url", image_url: { url: "data:image/jpeg;base64," + b64 } });
+        }
         const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
@@ -306,10 +363,7 @@ async function askVlmCloud(jpegBuf, content) {
                 model: VLM_CLOUD_MODEL,
                 messages: [{
                     role: "user",
-                    content: [
-                        { type: "text", text: extra ? `${content}\n\n${extra}` : content },
-                        { type: "image_url", image_url: { url: "data:image/jpeg;base64," + b64 } },
-                    ],
+                    content: blocks,
                 }],
                 temperature: 0,
                 max_tokens: 3000,
@@ -321,18 +375,23 @@ async function askVlmCloud(jpegBuf, content) {
         return data.choices?.[0]?.message?.content || "";
     };
     // Dense boards: 2x2 overlapping crops keep small print legible.
+    // Multi-page reports skip crops (one call, all pages).
+    if (jpegBufs.length > 1) {
+        return callOne(jpegBufs.map((b) => b.toString("base64")));
+    }
+    const jpegBuf = jpegBufs[0];
     let crops = null;
     try {
         crops = await makeCrops(jpegBuf);
     } catch (e) {
         console.log(`  crop failed (${e.message.split("\n")[0]}), single-shot`);
     }
-    if (!crops) return callOne(jpegBuf.toString("base64"));
+    if (!crops) return callOne([jpegBuf.toString("base64")]);
     const tables = [];
     for (let i = 0; i < crops.length; i++) {
         console.log(`  crop ${i + 1}/${crops.length}…`);
         const raw = await callOne(
-            crops[i].toString("base64"),
+            [crops[i].toString("base64")],
             "This is quadrant " + (i + 1) + " of 4 of the same menu board. " +
             "Transcribe only lines fully visible in this crop; skip lines cut off at the crop edge."
         );
@@ -343,6 +402,48 @@ async function askVlmCloud(jpegBuf, content) {
 
 function escapeHtml(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+const VAULT = process.env.OBSIDIAN_VAULT_PATH || "/Volumes/2TBSSD/data/berlin-menus";
+
+// Md-first archive: per-page tables + photo files under vault/reports/.
+// Returns the note path (vault-relative) for the Telegram preview.
+function writeReportMd(r, pagesMd, jpegBufs) {
+    const dir = path.join(VAULT, "reports");
+    fs.mkdirSync(dir, { recursive: true });
+    const photos = jpegBufs.map((b, i) => {
+        const fname = `report-${r.id}-p${i + 1}.jpg`;
+        fs.writeFileSync(path.join(dir, fname), b);
+        return fname;
+    });
+    // Normalize page headings to ## sections (model emits ### Page N)
+    const body = pagesMd
+        .split("\n")
+        .map((l) => (l.startsWith("### ") ? "## " + l.slice(4) : l))
+        .join("\n");
+    const md = [
+        "---",
+        `report: ${r.id}`,
+        `place_title: "${String(r.place_title || "").replace(/"/g, "")}"`,
+        `place_slug: "${String(r.place_slug || "").replace(/"/g, "")}"`,
+        `date: ${new Date().toISOString().slice(0, 10)}`,
+        `photos: ${photos.length}`,
+        "status: suggested",
+        "---",
+        "",
+        `# Menu report ${r.id} — ${r.place_title || "?"}`,
+        "",
+        r.message ? `Reporter note: ${r.message.trim()}` : null,
+        "",
+        ...photos.map((f) => `![[${f}]]`),
+        "",
+        body,
+        "",
+    ].filter((x) => x !== null).join("\n");
+    const notePath = path.join(dir, `report-${r.id}.md`);
+    fs.writeFileSync(notePath, md);
+    console.log(`  vault: reports/report-${r.id}.md (${photos.length} photos)`);
+    return `reports/report-${r.id}.md`;
 }
 
 async function tgSend(text) {
@@ -363,7 +464,10 @@ async function main() {
         connectionString: process.env.DATABASE_URL,
         ssl: false,
         connectionTimeoutMillis: 8000,
+        idleTimeoutMillis: 5000, // server kills idle sessions; recycle fast
     });
+    // Idle connections die during long VLM runs — swallow, pool reconnects.
+    pool.on("error", (e) => console.error("  (pool) " + String(e.message).split("\n")[0]));
     try {
         await pool.query(`
             ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS suggested_menu_md TEXT;
@@ -385,7 +489,19 @@ async function main() {
         console.log(`${rows.length} pending report(s)`);
         for (const r of rows) {
             console.log(`\n#${r.id} ${r.place_title || "?"} (${r.place_slug || "?"})`);
-            const hasImage = r.image_bytes && r.image_bytes.length > 0;
+            // All photos: new side table first, legacy single column as fallback
+            let raws = [];
+            try {
+                const imgs = await pool.query(
+                    "SELECT image_mime, image_bytes, image_name FROM menu_report_images WHERE report_id=$1 ORDER BY position",
+                    [r.id]
+                );
+                raws = imgs.rows.filter((x) => x.image_bytes && x.image_bytes.length > 0);
+            } catch { /* table may not exist on old DBs */ }
+            if (!raws.length && r.image_bytes && r.image_bytes.length > 0) {
+                raws = [{ image_mime: r.image_mime, image_bytes: r.image_bytes, image_name: r.image_name }];
+            }
+            const hasImage = raws.length > 0;
 
             // current menu for context
             let current = null;
@@ -414,12 +530,16 @@ async function main() {
             }
 
             try {
-                let imgBuf = Buffer.from(r.image_bytes);
-                if (isHeic(imgBuf, r.image_mime, r.image_name)) {
-                    console.log("  HEIC detected -> converting to JPEG");
-                    imgBuf = await toJpeg(imgBuf);
+                const jpegBufs = [];
+                for (const [i, im] of raws.entries()) {
+                    let imgBuf = Buffer.from(im.image_bytes);
+                    if (isHeic(imgBuf, im.image_mime, im.image_name)) {
+                        console.log(`  photo ${i + 1}/${raws.length}: HEIC -> JPEG`);
+                        imgBuf = await toJpeg(imgBuf);
+                    }
+                    jpegBufs.push(await normalizeOrientation(imgBuf));
                 }
-                imgBuf = await normalizeOrientation(imgBuf);
+                console.log(`  ${jpegBufs.length} photo(s) ready`);
                 const ctx = [
                     r.message ? `Reporter note: ${r.message.trim()}` : null,
                     current ? `Current menu on file (may be outdated, reconcile with photo + note):\n${current}` : null,
@@ -427,14 +547,25 @@ async function main() {
                 ].filter(Boolean).join("\n\n");
                 const engine = VLM_PROVIDER === "cloud" ? VLM_CLOUD_MODEL : VLM_PROVIDER === "zen" ? `zen/${ZEN_MODEL}` : VLM_PROVIDER === "opencode" ? `opencode/${OPENCODE_MODEL}` : VLM_MODEL;
                 console.log(`  asking ${engine}…`);
-                const raw = await askVlm(imgBuf, ctx);
-                const table = cleanTable(raw);
-                if (!table) {
+                const raw = await askVlm(jpegBufs, ctx);
+                const pagesMd = cleanTable(raw);
+                if (!pagesMd) {
                     throw new Error("no valid table in VLM reply: " + raw.slice(0, 200));
                 }
+                const table = flattenTable(pagesMd);
+                if (!table) {
+                    throw new Error("flatten produced no rows");
+                }
                 if (DRY_RUN) {
-                    console.log(`  DRY-RUN table (${countRows(table)} rows):\n${table}`);
+                    console.log(`  DRY-RUN pages (${countRows(table)} rows):\n${pagesMd}`);
                     continue;
+                }
+                // Vault first: per-page md + photo archive (best effort)
+                let vaultPath = null;
+                try {
+                    vaultPath = writeReportMd(r, pagesMd, jpegBufs);
+                } catch (e) {
+                    console.error("  vault write failed:", e.message);
                 }
                 await pool.query(
                     `UPDATE menu_reports SET suggested_menu_md=$1, status='suggested',
@@ -442,14 +573,16 @@ async function main() {
                     [table, r.id]
                 );
                 const oldN = countRows(current), newN = countRows(table);
+                const pages = (pagesMd.match(/^### /gm) || []).length || 1;
                 await tgSend(
                     `🆕 <b>Suggested menu #${r.id}: ${escapeHtml(r.place_title || "?")}</b>\n` +
-                    `rows: ${oldN} → ${newN}` +
+                    `photos: ${raws.length}, pages: ${pages}, rows: ${oldN} → ${newN}` +
                     (r.message ? `\nnote: ${escapeHtml(r.message.trim()).slice(0, 300)}` : "") +
-                    `\n\n<pre>${escapeHtml(table).slice(0, 3000)}</pre>\n` +
+                    (vaultPath ? `\nvault: <code>${escapeHtml(vaultPath)}</code>` : "") +
+                    `\n\n<pre>${escapeHtml(table).slice(0, 2800)}</pre>\n` +
                     `<i>Approve: node scripts/approve_report.js ${r.id}</i>`
                 );
-                console.log(`  suggested (${oldN} -> ${newN} rows), preview sent`);
+                console.log(`  suggested (${oldN} -> ${newN} rows, ${pages} pages), preview sent`);
             } catch (e) {
                 console.error(`  FAILED: ${e.message}`);
                 if (DRY_RUN) continue; // never write in dry-run

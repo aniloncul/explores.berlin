@@ -3,8 +3,11 @@ import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB per photo
+const MAX_IMAGES = 5;
 const MAX_MESSAGE = 4000;
+
+type ReportImage = { name: string; mime: string; bytes: Buffer };
 
 function escapeHtml(s: string): string {
     return String(s)
@@ -19,9 +22,7 @@ async function notifyByTelegram(opts: {
     placeSlug: string;
     message: string;
     email: string;
-    imageName: string;
-    imageMime: string;
-    imageBytes: Buffer | null;
+    images: ReportImage[];
 }): Promise<{ ok: boolean; error?: string }> {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -43,41 +44,59 @@ async function notifyByTelegram(opts: {
         : `\n<i>(no message — photo only)</i>`;
     const text = (header + body).slice(0, 4000);
 
-    // With photo: sendPhoto (caption max ~1024 chars) + follow-up message if long
-    if (opts.imageBytes && opts.imageBytes.length) {
+    // With photos: album (sendMediaGroup) for 2+, single sendPhoto otherwise.
+    // Caption max ~1024 chars on the first item.
+    if (opts.images.length) {
         const caption = (header + body).slice(0, 1000);
-        const fd = new FormData();
-        fd.append("chat_id", chatId);
-        fd.append(
-            "photo",
-            new Blob([new Uint8Array(opts.imageBytes)], {
-                type: opts.imageMime || "image/jpeg",
-            }),
-            opts.imageName || "menu.jpg"
-        );
-        fd.append("caption", caption);
-        fd.append("parse_mode", "HTML");
-        const res = await fetch(`${api}/sendPhoto`, { method: "POST", body: fd });
-        if (!res.ok) {
-            const err = await res.text().catch(() => "");
-            console.error("Telegram sendPhoto error:", err.slice(0, 300));
-            // Fallback: send as document (accepts HEIC & anything sendPhoto rejects)
+        const sendOne = async (img: ReportImage, cap: string): Promise<boolean> => {
+            const fd = new FormData();
+            fd.append("chat_id", chatId);
+            fd.append("photo", new Blob([new Uint8Array(img.bytes)], { type: img.mime || "image/jpeg" }), img.name || "menu.jpg");
+            fd.append("caption", cap);
+            fd.append("parse_mode", "HTML");
+            const res = await fetch(`${api}/sendPhoto`, { method: "POST", body: fd });
+            if (res.ok) return true;
+            console.error("Telegram sendPhoto error:", (await res.text().catch(() => "")).slice(0, 200));
+            // Fallback: document (accepts HEIC & anything sendPhoto rejects)
             const fd2 = new FormData();
             fd2.append("chat_id", chatId);
-            fd2.append(
-                "document",
-                new Blob([new Uint8Array(opts.imageBytes)], {
-                    type: opts.imageMime || "application/octet-stream",
-                }),
-                opts.imageName || "menu.jpg"
-            );
-            fd2.append("caption", caption);
+            fd2.append("document", new Blob([new Uint8Array(img.bytes)], { type: img.mime || "application/octet-stream" }), img.name || "menu.jpg");
+            fd2.append("caption", cap);
             fd2.append("parse_mode", "HTML");
             const res2 = await fetch(`${api}/sendDocument`, { method: "POST", body: fd2 });
             if (!res2.ok) {
-                const err2 = await res2.text().catch(() => "");
-                console.error("Telegram sendDocument error:", err2.slice(0, 300));
-                return { ok: false, error: `telegram ${res.status}/${res2.status}` };
+                console.error("Telegram sendDocument error:", (await res2.text().catch(() => "")).slice(0, 200));
+                return false;
+            }
+            return true;
+        };
+
+        if (opts.images.length === 1) {
+            if (!(await sendOne(opts.images[0], caption))) {
+                return { ok: false, error: "telegram send failed" };
+            }
+        } else {
+            // Album: one multipart call, caption on first photo
+            const fd = new FormData();
+            fd.append("chat_id", chatId);
+            const media = opts.images.map((img, i) => ({
+                type: "photo",
+                media: `attach://p${i}`,
+                ...(i === 0 ? { caption, parse_mode: "HTML" } : {}),
+            }));
+            fd.append("media", JSON.stringify(media));
+            opts.images.forEach((img, i) => {
+                fd.append(`p${i}`, new Blob([new Uint8Array(img.bytes)], { type: img.mime || "image/jpeg" }), img.name || `menu${i + 1}.jpg`);
+            });
+            const res = await fetch(`${api}/sendMediaGroup`, { method: "POST", body: fd });
+            if (!res.ok) {
+                console.error("Telegram sendMediaGroup error:", (await res.text().catch(() => "")).slice(0, 300));
+                // Fallback: photos one by one (photo→document fallback inside)
+                for (let i = 0; i < opts.images.length; i++) {
+                    if (!(await sendOne(opts.images[i], i === 0 ? caption : ""))) {
+                        return { ok: false, error: "telegram album fallback failed" };
+                    }
+                }
             }
         }
         // Full text didn't fit in caption → send remainder as message
@@ -130,6 +149,16 @@ function ensureSchema() {
         ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS suggested_menu_md TEXT;
         ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
         ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS processing_error TEXT;
+        CREATE TABLE IF NOT EXISTS menu_report_images (
+            id SERIAL PRIMARY KEY,
+            report_id INTEGER NOT NULL REFERENCES menu_reports(id) ON DELETE CASCADE,
+            position INTEGER NOT NULL DEFAULT 0,
+            image_mime VARCHAR(100),
+            image_bytes BYTEA,
+            image_name VARCHAR(255),
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_menu_report_images_report ON menu_report_images(report_id);
     `);
 }
 
@@ -141,9 +170,7 @@ export async function POST(req: Request) {
         let placeTitle = "";
         let message = "";
         let email = "";
-        let imageName = "";
-        let imageMime = "";
-        let imageBytes: Buffer | null = null;
+        const images: ReportImage[] = [];
 
         if (contentType.includes("multipart/form-data")) {
             const form = await req.formData();
@@ -152,31 +179,38 @@ export async function POST(req: Request) {
             message = String(form.get("message") || "").slice(0, MAX_MESSAGE);
             email = String(form.get("email") || "").slice(0, 255);
 
-            const file = form.get("image");
-            if (file && typeof file === "object" && "size" in file && (file as File).size > 0) {
-                const f = file as File;
+            const files = form.getAll("image").filter(
+                (f): f is File => typeof f === "object" && f !== null && "size" in f && (f as File).size > 0
+            );
+            if (files.length > MAX_IMAGES) {
+                return NextResponse.json(
+                    { error: `Too many photos (max ${MAX_IMAGES})` },
+                    { status: 400 }
+                );
+            }
+            for (const f of files) {
                 if (f.size > MAX_IMAGE_BYTES) {
                     return NextResponse.json(
-                        { error: "Image too large (max 8MB)" },
+                        { error: `Photo ${f.name || ""} too large (max 8MB each)` },
                         { status: 400 }
                     );
                 }
-                const buf = Buffer.from(await f.arrayBuffer());
-                imageMime = f.type || "image/jpeg";
-                imageName = (f.name || "menu.jpg").slice(0, 255);
-                imageBytes = buf;
+                let buf: Buffer = Buffer.from(await f.arrayBuffer());
+                let mime = f.type || "image/jpeg";
+                let name = (f.name || "menu.jpg").slice(0, 255);
 
                 // iPhone HEIC → JPEG (Telegram sendPhoto HEIC kabul etmez)
-                if (/heic|heif/i.test(imageMime) || /\.hei[c|f]$/i.test(imageName)) {
+                if (/heic|heif/i.test(mime) || /\.hei[c|f]$/i.test(name)) {
                     try {
                         const sharp = (await import("sharp")).default;
-                        imageBytes = await sharp(buf).jpeg({ quality: 85 }).toBuffer();
-                        imageMime = "image/jpeg";
-                        imageName = imageName.replace(/\.hei[c|f]$/i, ".jpg");
+                        buf = Buffer.from(await sharp(buf).jpeg({ quality: 85 }).toBuffer());
+                        mime = "image/jpeg";
+                        name = name.replace(/\.hei[c|f]$/i, ".jpg");
                     } catch (e: any) {
                         console.error("HEIC convert failed, storing original:", e?.message);
                     }
                 }
+                images.push({ name, mime, bytes: buf });
             }
         } else {
             const body = await req.json();
@@ -187,11 +221,11 @@ export async function POST(req: Request) {
         }
 
         const hasMessage = message.trim().length > 0;
-        const hasImage = !!imageBytes;
+        const hasImage = images.length > 0;
 
         if (!hasMessage && !hasImage) {
             return NextResponse.json(
-                { error: "Provide a menu photo or a message" },
+                { error: "Provide menu photo(s) or a message" },
                 { status: 400 }
             );
         }
@@ -204,22 +238,30 @@ export async function POST(req: Request) {
 
         await ensureSchema();
 
+        const first = images[0] || null;
         const insertRes = await query(
             `INSERT INTO menu_reports
                 (place_slug, place_title, message, email, image_mime, image_bytes, image_name)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             RETURNING id`,
+              VALUES ($1, $2, $3, $4, $5, $6, $7)
+              RETURNING id`,
             [
                 placeSlug || null,
                 placeTitle || null,
                 hasMessage ? message.trim() : null,
                 email || null,
-                imageMime || null,
-                imageBytes,
-                imageName || null,
+                first?.mime || null,
+                first?.bytes || null,
+                first?.name || null,
             ]
         );
         const reportId = insertRes.rows[0]?.id;
+        for (let i = 0; i < images.length; i++) {
+            await query(
+                `INSERT INTO menu_report_images (report_id, position, image_mime, image_bytes, image_name)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [reportId, i, images[i].mime, images[i].bytes, images[i].name]
+            );
+        }
 
         // Telegram notify — non-blocking for UX: report is already stored
         let telegramSent = false;
@@ -230,9 +272,7 @@ export async function POST(req: Request) {
                 placeSlug,
                 message: hasMessage ? message.trim() : "",
                 email,
-                imageName,
-                imageMime,
-                imageBytes,
+                images,
             });
             telegramSent = tg.ok;
             if (!tg.ok) {
@@ -248,6 +288,7 @@ export async function POST(req: Request) {
                 message: "Menu fix report received",
                 id: reportId,
                 telegramSent,
+                imageCount: images.length,
             },
             { status: 201 }
         );
@@ -265,12 +306,13 @@ export async function GET() {
         await ensureSchema();
         const res = await query(`
             SELECT
-                id, place_slug, place_title, message, email,
-                image_mime,
-                octet_length(image_bytes) AS image_size,
-                image_name, status, created_at
-            FROM menu_reports
-            ORDER BY created_at DESC
+                m.id, m.place_slug, m.place_title, m.message, m.email,
+                m.image_mime,
+                octet_length(m.image_bytes) AS image_size,
+                m.image_name, m.status, m.created_at,
+                (SELECT COUNT(*) FROM menu_report_images i WHERE i.report_id = m.id) AS image_count
+            FROM menu_reports m
+            ORDER BY m.created_at DESC
             LIMIT 100
         `);
         return NextResponse.json(res.rows);

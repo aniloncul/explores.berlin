@@ -87,8 +87,9 @@ export default function Page() {
         message: "",
         email: "",
     });
-    const [reportImage, setReportImage] = useState<File | null>(null);
-    const [reportImagePreview, setReportImagePreview] = useState<string | null>(null);
+    const [reportImages, setReportImages] = useState<File[]>([]);
+    const [reportImagePreviews, setReportImagePreviews] = useState<string[]>([]);
+    const MAX_REPORT_IMAGES = 5;
 
     const openReportModal = () => {
         const active = locations.find(l => l.id === (selectedId || hoveredId));
@@ -101,8 +102,8 @@ export default function Page() {
             message: "",
             email: "",
         });
-        setReportImage(null);
-        setReportImagePreview(null);
+        setReportImages([]);
+        setReportImagePreviews([]);
         setReportStatus("idle");
         setReportError("");
         setIsReportModalOpen(true);
@@ -112,35 +113,51 @@ export default function Page() {
         setIsReportModalOpen(false);
         setReportStatus("idle");
         setReportError("");
-        setReportImage(null);
-        setReportImagePreview(null);
+        setReportImages([]);
+        setReportImagePreviews(prev => {
+            prev.forEach(u => URL.revokeObjectURL(u));
+            return [];
+        });
     };
 
-    const handleReportImageChange = (file: File | null) => {
-        if (reportImagePreview) URL.revokeObjectURL(reportImagePreview);
-        if (!file) {
-            setReportImage(null);
-            setReportImagePreview(null);
-            return;
+    const handleReportImagesChange = (files: FileList | null) => {
+        if (!files || !files.length) return;
+        const current = reportImages.length;
+        const incoming = Array.from(files).slice(0, MAX_REPORT_IMAGES - current);
+        if (reportImages.length + Array.from(files).length > MAX_REPORT_IMAGES) {
+            setReportError(`Max ${MAX_REPORT_IMAGES} photos.`);
         }
-        if (!file.type.startsWith("image/")) {
-            setReportError("Please choose an image file.");
-            return;
+        for (const file of incoming) {
+            if (!file.type.startsWith("image/")) {
+                setReportError("Please choose image files only.");
+                continue;
+            }
+            if (file.size > 8 * 1024 * 1024) {
+                setReportError("Each photo must be 8MB or smaller.");
+                continue;
+            }
         }
-        if (file.size > 8 * 1024 * 1024) {
-            setReportError("Image must be 8MB or smaller.");
-            return;
-        }
+        const valid = incoming.filter(f => f.type.startsWith("image/") && f.size <= 8 * 1024 * 1024);
+        if (!valid.length) return;
         setReportError("");
-        setReportImage(file);
-        setReportImagePreview(URL.createObjectURL(file));
+        setReportImages(prev => [...prev, ...valid]);
+        setReportImagePreviews(prev => [...prev, ...valid.map(f => URL.createObjectURL(f))]);
+    };
+
+    const handleReportImageRemove = (index: number) => {
+        setReportImages(prev => prev.filter((_, i) => i !== index));
+        setReportImagePreviews(prev => {
+            const next = prev.filter((_, i) => i !== index);
+            if (prev[index]) URL.revokeObjectURL(prev[index]);
+            return next;
+        });
     };
 
     const handleReportSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const message = reportForm.message.trim();
-        if (!message && !reportImage) {
-            setReportError("Add a menu photo or a message.");
+        if (!message && !reportImages.length) {
+            setReportError("Add menu photo(s) or a message.");
             return;
         }
         setReportStatus("sending");
@@ -151,7 +168,7 @@ export default function Page() {
             fd.append("placeSlug", reportForm.placeSlug.trim());
             fd.append("message", message);
             fd.append("email", reportForm.email.trim());
-            if (reportImage) fd.append("image", reportImage);
+            reportImages.forEach(f => fd.append("image", f));
 
             const res = await fetch("/api/menu-report", {
                 method: "POST",
@@ -163,9 +180,11 @@ export default function Page() {
             }
             setReportStatus("success");
             setReportForm({ placeTitle: "", placeSlug: "", message: "", email: "" });
-            setReportImage(null);
-            if (reportImagePreview) URL.revokeObjectURL(reportImagePreview);
-            setReportImagePreview(null);
+            setReportImages([]);
+            setReportImagePreviews(prev => {
+                prev.forEach(u => URL.revokeObjectURL(u));
+                return [];
+            });
         } catch (err: any) {
             setReportStatus("error");
             setReportError(err.message || "Something went wrong");
@@ -556,7 +575,7 @@ export default function Page() {
                         ) : (
                             <form onSubmit={handleReportSubmit} className="space-y-5 font-mono text-xs">
                                 <p className="text-xs text-black/70 leading-relaxed">
-                                    Found wrong prices or a new menu? Upload a photo of the current menu
+                                    Found wrong prices or a new menu? Upload photo(s) of the current menu
                                     and/or leave a short message.
                                 </p>
 
@@ -582,30 +601,35 @@ export default function Page() {
 
                                 <div className="flex flex-col gap-1">
                                     <label className="font-bold text-black uppercase tracking-wider">
-                                        New menu photo
+                                        Menu photos (up to {MAX_REPORT_IMAGES})
                                     </label>
                                     <input
                                         type="file"
                                         accept="image/*"
                                         capture="environment"
-                                        onChange={e => handleReportImageChange(e.target.files?.[0] || null)}
+                                        multiple
+                                        onChange={e => handleReportImagesChange(e.target.files)}
                                         className="border-2 border-black p-3 bg-white text-black outline-none text-sm file:mr-3 file:px-3 file:py-1 file:border-2 file:border-black file:bg-sky-400 file:text-black file:font-bold file:text-xs file:uppercase file:cursor-pointer"
                                     />
-                                    {reportImagePreview && (
-                                        <div className="mt-2 border-2 border-black bg-white p-2">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
-                                                src={reportImagePreview}
-                                                alt="Menu preview"
-                                                className="max-h-48 w-auto mx-auto object-contain"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => handleReportImageChange(null)}
-                                                className="mt-2 text-[10px] font-bold uppercase text-rose-500 underline"
-                                            >
-                                                Remove photo
-                                            </button>
+                                    {reportImagePreviews.length > 0 && (
+                                        <div className="mt-2 grid grid-cols-2 gap-2">
+                                            {reportImagePreviews.map((src, i) => (
+                                                <div key={i} className="border-2 border-black bg-white p-2">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img
+                                                        src={src}
+                                                        alt={`Menu preview ${i + 1}`}
+                                                        className="max-h-40 w-auto mx-auto object-contain"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleReportImageRemove(i)}
+                                                        className="mt-1 text-[10px] font-bold uppercase text-rose-500 underline"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                 </div>

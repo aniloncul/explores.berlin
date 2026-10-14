@@ -32,6 +32,13 @@ function escapeHtml(s: string) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// Separator-row check, built dynamically (Tailwind scans .ts sources and
+// chokes on arbitrary-value-looking patterns, so no such literal here).
+const SEP_RE = new RegExp("^[\\-:\\s]+$");
+function isSepRow(s: string): boolean {
+    return SEP_RE.test(s);
+}
+
 async function tgSend(text: string) {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     const chat = process.env.TELEGRAM_CHAT_ID;
@@ -65,7 +72,7 @@ function cleanTable(raw: string): string | null {
         const cells = ln.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
         if (cells.length < 2) continue;
         const [item, price] = cells;
-        if (/^[-:\s]+$/.test(item) || /^[-:\s]+$/.test(price)) continue;
+        if (isSepRow(item) || isSepRow(price)) continue;
         if (item.toLowerCase() === "item" && price.toLowerCase() === "price") {
             rows = ["| Item | Price |", "|------|-------|"];
             continue;
@@ -101,12 +108,25 @@ export async function GET(req: Request) {
                           AND COALESCE(image_name,'') NOT ILIKE '%.hei%'))
                ORDER BY id LIMIT 1
              )
-             RETURNING id, place_slug, place_title, message, image_mime, image_bytes`
+             RETURNING id, place_slug, place_title, message`
         );
         if (!claim.rowCount) return NextResponse.json({ ok: true, processed: 0 });
 
         const r = claim.rows[0] as any;
-        const hasImage = r.image_bytes && (r.image_bytes as Buffer).length > 0;
+        let raws: { image_mime: string; image_bytes: Buffer; image_name: string }[] = [];
+        try {
+            const imgs = await query(
+                "SELECT image_mime, image_bytes, image_name FROM menu_report_images WHERE report_id=$1 ORDER BY position",
+                [r.id]
+            );
+            raws = imgs.rows.filter((x: any) => x.image_bytes && (x.image_bytes as Buffer).length > 0);
+        } catch { /* side table may not exist yet */ }
+        if (!raws.length) {
+            const legacy = await query("SELECT image_mime, image_bytes, image_name FROM menu_reports WHERE id=$1", [r.id]);
+            const l = legacy.rows[0];
+            if (l?.image_bytes && (l.image_bytes as Buffer).length > 0) raws = [l];
+        }
+        const hasImage = raws.length > 0;
 
         if (!hasImage) {
             await query("UPDATE menu_reports SET status='text-only', processed_at=NOW() WHERE id=$1", [r.id]);
@@ -119,11 +139,16 @@ export async function GET(req: Request) {
         }
 
         // Normalize orientation via sharp (EXIF transpose). HEIC already excluded.
-        let imgBuf = Buffer.from(r.image_bytes);
-        try {
-            const sharp = (await import("sharp")).default;
-            imgBuf = await sharp(imgBuf).rotate().jpeg({ quality: 90 }).toBuffer();
-        } catch { /* send as-is */ }
+        // Multi-page: all photos go in one call, model merges into one table.
+        const blocks: any[] = [{ type: "text", text: BASE_PROMPT + (raws.length > 1 ? `\n\nThe attached ${raws.length} photos are pages of the SAME menu, in order. Merge them into ONE combined table.` : "") }];
+        for (const im of raws) {
+            let imgBuf: Buffer = Buffer.from(im.image_bytes);
+            try {
+                const sharp = (await import("sharp")).default;
+                imgBuf = Buffer.from(await sharp(imgBuf).rotate().jpeg({ quality: 90 }).toBuffer());
+            } catch { /* send as-is */ }
+            blocks.push({ type: "image_url", image_url: { url: "data:image/jpeg;base64," + imgBuf.toString("base64") } });
+        }
 
         const apiKey = process.env.NVIDIA_API_KEY;
         if (!apiKey) throw new Error("NVIDIA_API_KEY missing");
@@ -134,10 +159,7 @@ export async function GET(req: Request) {
                 model: process.env.VLM_CLOUD_MODEL || "nvidia/ising-calibration-1.5-31b",
                 messages: [{
                     role: "user",
-                    content: [
-                        { type: "text", text: BASE_PROMPT },
-                        { type: "image_url", image_url: { url: "data:image/jpeg;base64," + imgBuf.toString("base64") } },
-                    ],
+                    content: blocks,
                 }],
                 temperature: 0,
                 max_tokens: 3000,
