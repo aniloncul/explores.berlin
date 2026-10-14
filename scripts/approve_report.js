@@ -41,10 +41,14 @@ function syncVaultNoteMenu(slug, flatTable) {
     const text = fs.readFileSync(note, "utf8");
     const block = `## Menu\n\n${flatTable}\n`;
     let next;
-    if (/^## Menu/m.test(text)) {
-        next = text.replace(/^## Menu[\s\S]*?(?=^## |\s*$)/m, () => block + "\n");
-    } else {
+    const start = text.indexOf("## Menu");
+    if (start === -1) {
         next = text.trimEnd() + "\n\n" + block;
+    } else {
+        let end = text.indexOf("\n## ", start);
+        if (end === -1) end = text.length;
+        else end += 1; // keep the "\n" before next heading
+        next = text.slice(0, start) + block + (end < text.length ? "\n" + text.slice(end) : "\n");
     }
     fs.writeFileSync(note, next);
     return note;
