@@ -61,7 +61,24 @@ async function notifyByTelegram(opts: {
         if (!res.ok) {
             const err = await res.text().catch(() => "");
             console.error("Telegram sendPhoto error:", err.slice(0, 300));
-            return { ok: false, error: `telegram ${res.status}` };
+            // Fallback: send as document (accepts HEIC & anything sendPhoto rejects)
+            const fd2 = new FormData();
+            fd2.append("chat_id", chatId);
+            fd2.append(
+                "document",
+                new Blob([new Uint8Array(opts.imageBytes)], {
+                    type: opts.imageMime || "application/octet-stream",
+                }),
+                opts.imageName || "menu.jpg"
+            );
+            fd2.append("caption", caption);
+            fd2.append("parse_mode", "HTML");
+            const res2 = await fetch(`${api}/sendDocument`, { method: "POST", body: fd2 });
+            if (!res2.ok) {
+                const err2 = await res2.text().catch(() => "");
+                console.error("Telegram sendDocument error:", err2.slice(0, 300));
+                return { ok: false, error: `telegram ${res.status}/${res2.status}` };
+            }
         }
         // Full text didn't fit in caption → send remainder as message
         if (text.length > caption.length) {
