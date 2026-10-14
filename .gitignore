@@ -37,3 +37,6 @@ Anil Oncul passport.jpg
 
 # place cover photos (Google downloads — not for commit)
 /public/images/places/
+
+# report poller scratch images (auto-deleted, never commit)
+/tmp_reports/

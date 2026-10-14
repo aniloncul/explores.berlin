@@ -35,10 +35,15 @@ const VLM_MODEL = process.env.VLM_MODEL || "gemma4:e4b";
 const VLM_CTX = parseInt(process.env.VLM_CTX || "16384", 10);
 const VLM_PREDICT = parseInt(process.env.VLM_PREDICT || "4096", 10);
 const VLM_THINK = (process.env.VLM_THINK || "false").toLowerCase() === "true";
-// VLM_PROVIDER=local (Ollama, free, weak on dense boards) or cloud (NVIDIA NIM
-// vision, strong grounding, fractions of a cent per report).
-const VLM_PROVIDER = (process.env.VLM_PROVIDER || "cloud").toLowerCase();
+// VLM_PROVIDER=local (Ollama, free, weak on dense boards), cloud (NVIDIA NIM
+// vision), zen (OpenCode inference API key) or opencode (opencode CLI run —
+// headless, uses OpenCode auth incl. free tier; best quality so far).
+const VLM_PROVIDER = (process.env.VLM_PROVIDER || "opencode").toLowerCase();
 const VLM_CLOUD_MODEL = process.env.VLM_CLOUD_MODEL || "nvidia/ising-calibration-1.5-31b";
+const OPENCODE_MODEL = process.env.OPENCODE_MODEL || "opencode/muse-spark-1.3-contributor-free";
+const OPENCODE_BIN = process.env.OPENCODE_BIN || "opencode";
+const ZEN_API = process.env.OPENCODE_API_URL || "https://opencode.ai/inference/v1";
+const ZEN_MODEL = process.env.ZEN_MODEL || "muse-spark-1.3-contributor-free";
 const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TG_CHAT = process.env.TELEGRAM_CHAT_ID;
 
@@ -156,17 +161,32 @@ async function toJpeg(buf) {
     }
 }
 
-// Normalize orientation via EXIF transpose (phone photos are often stored
-// rotated — VLMs read garbage from sideways pixels). No-op when EXIF=1.
-// Keeps full resolution: dense boards need every pixel (downscale happens
-// per-engine below).
+// Normalize orientation via EXIF transpose AND strip the EXIF tag, so every
+// downstream reader sees identical upright pixels (a leftover orientation tag
+// makes some readers rotate a second time). PIL-based: deterministic.
 async function normalizeOrientation(jpegBuf) {
+    const { execFileSync } = require("child_process");
+    const tmpIn = path.join(os.tmpdir(), `nrm_${Date.now()}.jpg`);
+    fs.writeFileSync(tmpIn, jpegBuf);
     try {
-        const sharp = (await import("sharp")).default;
-        return await sharp(jpegBuf).rotate().jpeg({ quality: 90 }).toBuffer();
+        const out = execFileSync("python3", ["-c",
+            "import sys;from PIL import Image,ImageOps;" +
+            "im=Image.open(sys.argv[1]);im=ImageOps.exif_transpose(im);" +
+            "im.save(sys.argv[2],'JPEG',quality=90)",
+            tmpIn, tmpIn + ".out.jpg"], { encoding: "utf8", timeout: 60000 });
+        return fs.readFileSync(tmpIn + ".out.jpg");
     } catch (e) {
-        console.log(`  orientation normalize skipped (${e.message.split("\n")[0]})`);
-        return jpegBuf;
+        console.log(`  PIL normalize failed (${String(e.message).split("\n")[0]}), trying sharp…`);
+        try {
+            const sharp = (await import("sharp")).default;
+            return await sharp(jpegBuf).rotate().jpeg({ quality: 90 }).toBuffer();
+        } catch (e2) {
+            console.log("  orientation normalize skipped");
+            return jpegBuf;
+        }
+    } finally {
+        try { fs.unlinkSync(tmpIn); } catch {}
+        try { fs.unlinkSync(tmpIn + ".out.jpg"); } catch {}
     }
 }
 
@@ -206,6 +226,8 @@ function mergeCropTables(tables) {
 async function askVlm(jpegBuf, extraContext) {
     const content = extraContext ? `${BASE_PROMPT}\n\n${extraContext}` : BASE_PROMPT;
     if (VLM_PROVIDER === "cloud") return askVlmCloud(jpegBuf, content);
+    if (VLM_PROVIDER === "zen") return askVlmZen(jpegBuf, content);
+    if (VLM_PROVIDER === "opencode") return askVlmOpencode(jpegBuf, content);
     // local path: downscale for speed/context
     const sharp = (await import("sharp")).default;
     const small = await sharp(jpegBuf).resize(2048, 2048, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 88 }).toBuffer();
@@ -224,6 +246,53 @@ async function askVlm(jpegBuf, extraContext) {
     if (!res.ok) throw new Error(`ollama ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const data = await res.json();
     return data.message?.content || "";
+}
+
+async function askVlmOpencode(jpegBuf, content) {
+    // Headless opencode run: image must live inside the workspace (/tmp is blocked).
+    const { execFileSync } = require("child_process");
+    const dir = path.join(__dirname, "..", "tmp_reports");
+    fs.mkdirSync(dir, { recursive: true });
+    const imgPath = path.join(dir, `rep_${Date.now()}.jpg`);
+    try {
+        fs.writeFileSync(imgPath, jpegBuf);
+        const rel = path.relative(path.join(__dirname, ".."), imgPath);
+        const out = execFileSync(
+            OPENCODE_BIN,
+            ["run", `${content}\n\nMenu photo: ${rel} — it is already upright, do not rotate it. ` +
+             `Read only this file and work only inside the project directory.`,
+             "-m", OPENCODE_MODEL],
+            { encoding: "utf8", timeout: 600_000, maxBuffer: 4 * 1024 * 1024 }
+        );
+        return out;
+    } finally {
+        try { fs.unlinkSync(imgPath); } catch {}
+    }
+}
+
+async function askVlmZen(jpegBuf, content) {
+    const key = process.env.OPENCODE_API_KEY;
+    if (!key) throw new Error("OPENCODE_API_KEY missing for zen VLM");
+    const res = await fetch(`${ZEN_API}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+            model: ZEN_MODEL,
+            messages: [{
+                role: "user",
+                content: [
+                    { type: "text", text: content },
+                    { type: "image_url", image_url: { url: "data:image/jpeg;base64," + jpegBuf.toString("base64") } },
+                ],
+            }],
+            temperature: 0,
+            max_tokens: 4000,
+        }),
+        signal: AbortSignal.timeout(600_000),
+    });
+    if (!res.ok) throw new Error(`zen ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "";
 }
 
 async function askVlmCloud(jpegBuf, content) {
@@ -355,7 +424,8 @@ async function main() {
                     current ? `Current menu on file (may be outdated, reconcile with photo + note):\n${current}` : null,
                     "Return the FULL updated menu table.",
                 ].filter(Boolean).join("\n\n");
-                console.log(`  asking ${VLM_PROVIDER === "cloud" ? VLM_CLOUD_MODEL : VLM_MODEL}…`);
+                const engine = VLM_PROVIDER === "cloud" ? VLM_CLOUD_MODEL : VLM_PROVIDER === "zen" ? `zen/${ZEN_MODEL}` : VLM_PROVIDER === "opencode" ? `opencode/${OPENCODE_MODEL}` : VLM_MODEL;
+                console.log(`  asking ${engine}…`);
                 const raw = await askVlm(imgBuf, ctx);
                 const table = cleanTable(raw);
                 if (!table) {
