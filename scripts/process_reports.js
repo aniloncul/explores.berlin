@@ -27,6 +27,8 @@ const li = args.indexOf("--limit");
 const LIMIT = li >= 0 && args[li + 1] ? parseInt(args[li + 1], 10) : 10;
 const ii = args.indexOf("--id");
 const ONLY_ID = ii >= 0 && args[ii + 1] ? parseInt(args[ii + 1], 10) : null;
+const DRY_RUN = args.includes("--dry-run"); // vision runs, prints table, writes nothing
+const FORCE = args.includes("--force"); // with --id: reprocess regardless of status
 
 const OLLAMA = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
 const VLM_MODEL = process.env.VLM_MODEL || "gemma4:e4b";
@@ -46,6 +48,11 @@ Rules:
 - Drop allergen superscripts, portion codes, "Produktinfo", logos, QR codes,
   addresses and opening hours.
 - If a price is unreadable write ? instead of guessing.
+- NEVER output section/category headers (COCKTAILS, BEER, WINE, SOFT DRINKS…)
+  as rows — headers are not dishes, skip them entirely.
+- A ? price is only allowed for a real dish or drink whose name you can read
+  clearly. If a line has no readable item name, skip it, do not emit it.
+- Never use bold (**) or any other markdown formatting inside the table.
 - Output the table directly with no analysis.
 - Output only the markdown table. No commentary, no code fences.`;
 
@@ -67,6 +74,7 @@ function cleanTable(raw) {
     if (lines.length < 3) return null;
     let rows = [];
     for (const ln of lines) {
+        if (ln.includes("**")) continue; // bold = section header artifact, never a dish
         const cells = ln.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
         if (cells.length < 2) continue;
         const [item, price] = cells;
@@ -81,7 +89,18 @@ function cleanTable(raw) {
         if (cleanItem) rows.push(`| ${cleanItem} | ${norm} |`);
     }
     if (rows.length < 3) return null;
-    return rows.join("\n");
+    // dedup: menus repeat the same board; keep first occurrence of identical rows
+    const seen = new Set();
+    const deduped = [];
+    for (const r of rows) {
+        if (!r.startsWith("| Item")) {
+            const key = r.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+        }
+        deduped.push(r);
+    }
+    return deduped.join("\n");
 }
 
 function countRows(table) {
@@ -176,11 +195,15 @@ async function main() {
             ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
             ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS processing_error TEXT;
         `);
-        const where = ONLY_ID ? "AND id = $2" : "";
-        const params = ONLY_ID ? ["new", ONLY_ID] : ["new"];
+        let statusFilter, where, params;
+        if (ONLY_ID && FORCE) {
+            statusFilter = "TRUE"; where = "AND id = $1"; params = [ONLY_ID];
+        } else {
+            statusFilter = "status = $1"; where = ONLY_ID ? "AND id = $2" : ""; params = ONLY_ID ? ["new", ONLY_ID] : ["new"];
+        }
         const { rows } = await pool.query(
             `SELECT id, place_slug, place_title, message, email, image_mime, image_bytes, image_name
-             FROM menu_reports WHERE status = $1 ${where} ORDER BY id LIMIT ${LIMIT}`,
+             FROM menu_reports WHERE ${statusFilter} ${where} ORDER BY id LIMIT ${LIMIT}`,
             params
         );
         console.log(`${rows.length} pending report(s)`);
@@ -230,6 +253,10 @@ async function main() {
                 const table = cleanTable(raw);
                 if (!table) {
                     throw new Error("no valid table in VLM reply: " + raw.slice(0, 200));
+                }
+                if (DRY_RUN) {
+                    console.log(`  DRY-RUN table (${countRows(table)} rows):\n${table}`);
+                    continue;
                 }
                 await pool.query(
                     `UPDATE menu_reports SET suggested_menu_md=$1, status='suggested',
