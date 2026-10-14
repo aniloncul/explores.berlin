@@ -137,6 +137,11 @@ export default function Page() {
                 setReportError("Each photo must be 8MB or smaller.");
                 return false;
             }
+            const dupe = reportImages.some(g => g.name === f.name && g.size === f.size && g.lastModified === f.lastModified);
+            if (dupe) {
+                setReportError(`"${f.name}" already added — duplicate skipped.`);
+                return false;
+            }
             return true;
         });
         if (!valid.length) return;

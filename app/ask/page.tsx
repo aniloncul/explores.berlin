@@ -137,7 +137,15 @@ export default function Page() {
                 continue;
             }
         }
-        const valid = incoming.filter(f => f.type.startsWith("image/") && f.size <= 8 * 1024 * 1024);
+        const valid = incoming.filter(f => {
+            if (!f.type.startsWith("image/") || f.size > 8 * 1024 * 1024) return false;
+            const dupe = reportImages.some(g => g.name === f.name && g.size === f.size && g.lastModified === f.lastModified);
+            if (dupe) {
+                setReportError(`"${f.name}" already added — duplicate skipped.`);
+                return false;
+            }
+            return true;
+        });
         if (!valid.length) return;
         setReportError("");
         setReportImages(prev => [...prev, ...valid]);

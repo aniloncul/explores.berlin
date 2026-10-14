@@ -159,6 +159,7 @@ function ensureSchema() {
             created_at TIMESTAMPTZ DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_menu_report_images_report ON menu_report_images(report_id);
+        ALTER TABLE menu_report_images ADD COLUMN IF NOT EXISTS sha256 VARCHAR(64);
     `);
 }
 
@@ -255,24 +256,63 @@ export async function POST(req: Request) {
             ]
         );
         const reportId = insertRes.rows[0]?.id;
+        const { createHash } = await import("crypto");
+        let duplicatesSkipped = 0;
         for (let i = 0; i < images.length; i++) {
+            const sha = createHash("sha256").update(images[i].bytes).digest("hex");
+            const dupe = await query(
+                "SELECT id FROM menu_report_images WHERE report_id=$1 AND sha256=$2 LIMIT 1",
+                [reportId, sha]
+            );
+            if (dupe.rowCount) {
+                duplicatesSkipped++;
+                continue;
+            }
             await query(
-                `INSERT INTO menu_report_images (report_id, position, image_mime, image_bytes, image_name)
-                 VALUES ($1, $2, $3, $4, $5)`,
-                [reportId, i, images[i].mime, images[i].bytes, images[i].name]
+                `INSERT INTO menu_report_images (report_id, position, image_mime, image_bytes, image_name, sha256)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [reportId, i, images[i].mime, images[i].bytes, images[i].name, sha]
+            );
+        }
+        // Legacy first-photo columns reflect the first STORED photo
+        const firstStored = await query(
+            "SELECT image_mime, image_bytes, image_name FROM menu_report_images WHERE report_id=$1 ORDER BY position LIMIT 1",
+            [reportId]
+        );
+        if (firstStored.rowCount) {
+            const f = firstStored.rows[0];
+            await query(
+                "UPDATE menu_reports SET image_mime=$1, image_bytes=$2, image_name=$3 WHERE id=$4",
+                [f.image_mime, f.image_bytes, f.image_name, reportId]
+            );
+        } else {
+            await query(
+                "UPDATE menu_reports SET image_mime=NULL, image_bytes=NULL, image_name=NULL WHERE id=$1",
+                [reportId]
             );
         }
 
-        // Telegram notify — non-blocking for UX: report is already stored
+        // Telegram notify — non-blocking for UX: report is already stored.
+        // Uses stored (deduped) photos, not the raw upload.
         let telegramSent = false;
+        let tgImages: ReportImage[] = [];
         try {
+            const stored = await query(
+                "SELECT image_mime AS mime, image_bytes AS bytes, image_name AS name FROM menu_report_images WHERE report_id=$1 ORDER BY position",
+                [reportId]
+            );
+            tgImages = stored.rows.map((r: any) => ({
+                mime: r.mime,
+                bytes: Buffer.from(r.bytes),
+                name: r.name,
+            }));
             const tg = await notifyByTelegram({
                 reportId: reportId ?? null,
                 placeTitle,
                 placeSlug,
-                message: hasMessage ? message.trim() : "",
+                message: (hasMessage ? message.trim() : "") + (duplicatesSkipped ? `\n(${duplicatesSkipped} duplicate photo(s) skipped)` : ""),
                 email,
-                images,
+                images: tgImages,
             });
             telegramSent = tg.ok;
             if (!tg.ok) {
@@ -288,7 +328,8 @@ export async function POST(req: Request) {
                 message: "Menu fix report received",
                 id: reportId,
                 telegramSent,
-                imageCount: images.length,
+                imageCount: tgImages.length,
+                duplicatesSkipped,
             },
             { status: 201 }
         );
