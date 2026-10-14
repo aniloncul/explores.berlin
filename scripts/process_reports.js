@@ -32,6 +32,13 @@ const FORCE = args.includes("--force"); // with --id: reprocess regardless of st
 
 const OLLAMA = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
 const VLM_MODEL = process.env.VLM_MODEL || "gemma4:e4b";
+const VLM_CTX = parseInt(process.env.VLM_CTX || "16384", 10);
+const VLM_PREDICT = parseInt(process.env.VLM_PREDICT || "4096", 10);
+const VLM_THINK = (process.env.VLM_THINK || "false").toLowerCase() === "true";
+// VLM_PROVIDER=local (Ollama, free, weak on dense boards) or cloud (NVIDIA NIM
+// vision, strong grounding, fractions of a cent per report).
+const VLM_PROVIDER = (process.env.VLM_PROVIDER || "cloud").toLowerCase();
+const VLM_CLOUD_MODEL = process.env.VLM_CLOUD_MODEL || "nvidia/ising-calibration-1.5-31b";
 const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TG_CHAT = process.env.TELEGRAM_CHAT_ID;
 
@@ -44,6 +51,9 @@ const BASE_PROMPT = `Transcribe this restaurant menu image into a markdown table
 Rules:
 - One row per dish or drink that shows a price, in the original menu order.
 - Price format: German, e.g. 8,50 € (comma decimal, space before €).
+- The price is the RIGHTMOST amount on the line (often written "-- 12,50").
+  Volumes like 0,33L, 0,5L, 0,75L, 1L are NOT prices — never output a volume
+  as a price. If you cannot find a real price for an item, write ?.
 - Keep item names in the language printed on the menu.
 - Drop allergen superscripts, portion codes, "Produktinfo", logos, QR codes,
   addresses and opening hours.
@@ -148,34 +158,118 @@ async function toJpeg(buf) {
 
 // Normalize orientation via EXIF transpose (phone photos are often stored
 // rotated — VLMs read garbage from sideways pixels). No-op when EXIF=1.
+// Keeps full resolution: dense boards need every pixel (downscale happens
+// per-engine below).
 async function normalizeOrientation(jpegBuf) {
     try {
         const sharp = (await import("sharp")).default;
-        return await sharp(jpegBuf).rotate().jpeg({ quality: 88 }).toBuffer();
+        return await sharp(jpegBuf).rotate().jpeg({ quality: 90 }).toBuffer();
     } catch (e) {
         console.log(`  orientation normalize skipped (${e.message.split("\n")[0]})`);
         return jpegBuf;
     }
 }
 
+// Split board into 2x2 overlapping crops so small print stays legible.
+async function makeCrops(jpegBuf) {
+    const sharp = (await import("sharp")).default;
+    const meta = await sharp(jpegBuf).metadata();
+    const W = meta.width, H = meta.height;
+    const boxes = [
+        { left: 0, top: 0, width: Math.ceil(W * 0.55), height: Math.ceil(H * 0.55) },
+        { left: Math.floor(W * 0.45), top: 0, width: W - Math.floor(W * 0.45), height: Math.ceil(H * 0.55) },
+        { left: 0, top: Math.floor(H * 0.45), width: Math.ceil(W * 0.55), height: H - Math.floor(H * 0.45) },
+        { left: Math.floor(W * 0.45), top: Math.floor(H * 0.45), width: W - Math.floor(W * 0.45), height: H - Math.floor(H * 0.45) },
+    ];
+    const out = [];
+    for (const b of boxes) {
+        out.push(await sharp(jpegBuf).extract(b).jpeg({ quality: 90 }).toBuffer());
+    }
+    return out;
+}
+
+function mergeCropTables(tables) {
+    const seen = new Set();
+    const merged = ["| Item | Price |", "|------|-------|"];
+    for (const t of tables) {
+        if (!t) continue;
+        for (const ln of t.split("\n").slice(2)) {
+            const key = ln.trim().toLowerCase();
+            if (!key.startsWith("|") || seen.has(key)) continue;
+            seen.add(key);
+            merged.push(ln.trim());
+        }
+    }
+    return merged.length > 2 ? merged.join("\n") : null;
+}
+
 async function askVlm(jpegBuf, extraContext) {
-    const b64 = jpegBuf.toString("base64");
     const content = extraContext ? `${BASE_PROMPT}\n\n${extraContext}` : BASE_PROMPT;
+    if (VLM_PROVIDER === "cloud") return askVlmCloud(jpegBuf, content);
+    // local path: downscale for speed/context
+    const sharp = (await import("sharp")).default;
+    const small = await sharp(jpegBuf).resize(2048, 2048, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 88 }).toBuffer();
     const res = await fetch(`${OLLAMA}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             model: VLM_MODEL,
             stream: false,
-            think: false,
-            messages: [{ role: "user", content, images: [b64] }],
-            options: { temperature: 0, num_ctx: 8192, num_predict: 4096 },
+            think: VLM_THINK,
+            messages: [{ role: "user", content, images: [small.toString("base64")] }],
+            options: { temperature: 0, num_ctx: VLM_CTX, num_predict: VLM_PREDICT },
         }),
         signal: AbortSignal.timeout(1200_000),
     });
     if (!res.ok) throw new Error(`ollama ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const data = await res.json();
     return data.message?.content || "";
+}
+
+async function askVlmCloud(jpegBuf, content) {
+    const key = process.env.NVIDIA_API_KEY;
+    if (!key) throw new Error("NVIDIA_API_KEY missing for cloud VLM");
+    const callOne = async (b64, extra) => {
+        const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+            body: JSON.stringify({
+                model: VLM_CLOUD_MODEL,
+                messages: [{
+                    role: "user",
+                    content: [
+                        { type: "text", text: extra ? `${content}\n\n${extra}` : content },
+                        { type: "image_url", image_url: { url: "data:image/jpeg;base64," + b64 } },
+                    ],
+                }],
+                temperature: 0,
+                max_tokens: 3000,
+            }),
+            signal: AbortSignal.timeout(600_000),
+        });
+        if (!res.ok) throw new Error(`nvidia ${res.status}: ${(await res.text()).slice(0, 200)}`);
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content || "";
+    };
+    // Dense boards: 2x2 overlapping crops keep small print legible.
+    let crops = null;
+    try {
+        crops = await makeCrops(jpegBuf);
+    } catch (e) {
+        console.log(`  crop failed (${e.message.split("\n")[0]}), single-shot`);
+    }
+    if (!crops) return callOne(jpegBuf.toString("base64"));
+    const tables = [];
+    for (let i = 0; i < crops.length; i++) {
+        console.log(`  crop ${i + 1}/${crops.length}…`);
+        const raw = await callOne(
+            crops[i].toString("base64"),
+            "This is quadrant " + (i + 1) + " of 4 of the same menu board. " +
+            "Transcribe only lines fully visible in this crop; skip lines cut off at the crop edge."
+        );
+        tables.push(cleanTable(raw));
+    }
+    return mergeCropTables(tables) || "";
 }
 
 function escapeHtml(s) {
@@ -261,7 +355,7 @@ async function main() {
                     current ? `Current menu on file (may be outdated, reconcile with photo + note):\n${current}` : null,
                     "Return the FULL updated menu table.",
                 ].filter(Boolean).join("\n\n");
-                console.log(`  asking ${VLM_MODEL}…`);
+                console.log(`  asking ${VLM_PROVIDER === "cloud" ? VLM_CLOUD_MODEL : VLM_MODEL}…`);
                 const raw = await askVlm(imgBuf, ctx);
                 const table = cleanTable(raw);
                 if (!table) {
