@@ -8,7 +8,7 @@ import { Location } from "@/types";
 import { useMapStore } from "@/store/useMapStore";
 import ListingCard from "@/components/ListingCard";
 import MapComponent from "@/components/Map";
-import { X, MapPin } from "lucide-react";
+import { X, MapPin, Search } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import PixelTicker from "@/components/PixelTicker";
 import Navigation from "@/components/Navigation";
@@ -73,7 +73,7 @@ export default function Page() {
     const router = useRouter();
     const {
         activeCategories, toggleCategory,
-        hoveredId, selectedId
+        hoveredId, selectedId, setSelectedId
     } = useMapStore();
 
     const [locations, setLocations] = useState<Location[]>([]);
@@ -340,8 +340,38 @@ export default function Page() {
         return true;
     };
 
-    // Filter Logic — Bezirk AND Beer/Cocktail/Döner pills (OR)
+    // Filter Logic — Bezirk AND Beer/Cocktail/Döner pills (OR), plus text search
+    const [searchQuery, setSearchQuery] = useState("");
+    const searchActive = searchQuery.trim().length >= 2;
+
+    const searchSuggestions = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (q.length < 2) return [];
+        const seen = new Set<string>();
+        const out: Location[] = [];
+        for (const l of locations) {
+            const hay = `${l.title} ${l.address || ""} ${l.neighborhood || ""}`.toLowerCase();
+            if (!hay.includes(q) || seen.has(l.title.toLowerCase())) continue;
+            seen.add(l.title.toLowerCase());
+            out.push(l);
+            if (out.length >= 6) break;
+        }
+        return out;
+    }, [searchQuery, locations]);
+
+    const selectSearchResult = (loc: Location) => {
+        setSearchQuery(loc.title);
+        setSelectedId(loc.id);
+    };
+
     const filteredLocations = useMemo(() => {
+        // Text search runs across all Berlin, ignoring Bezirk/pills
+        if (searchActive) {
+            const q = searchQuery.trim().toLowerCase();
+            return locations.filter(loc =>
+                `${loc.title} ${loc.address || ""} ${loc.neighborhood || ""}`.toLowerCase().includes(q)
+            );
+        }
         return locations.filter(loc => {
             if (selectedBezirk !== "all" && loc.neighborhood !== selectedBezirk) return false;
             if (activeCategories.length > 0) {
@@ -350,10 +380,11 @@ export default function Page() {
             }
             return true;
         });
-    }, [selectedBezirk, activeCategories, locations]);
+    }, [selectedBezirk, activeCategories, locations, searchActive, searchQuery]);
 
     const clearAllFilters = () => {
         setSelectedBezirk("all");
+        setSearchQuery("");
         activeCategories.forEach(c => toggleCategory(c));
     };
 
@@ -371,6 +402,54 @@ export default function Page() {
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Left: Scrollable Grid */}
                 <div className="w-full lg:w-3/5 xl:w-[55%] h-full overflow-y-auto no-scrollbar p-4 sm:p-6 pb-32 scroll-smooth">
+                    {/* Place search with live suggestions */}
+                    <div className="relative mb-4">
+                        <div className="flex items-center gap-2 border-2 border-black px-4 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white">
+                            <Search className="h-4 w-4 shrink-0 text-black" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                placeholder="SEARCH PLACES… E.G. BIRGIT, DÖNER, KREUZBERG"
+                                className="bg-transparent text-sm font-bold uppercase outline-none font-mono w-full placeholder:text-black/40 text-black"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => { setSearchQuery(""); setSelectedId(null); }}
+                                    className="p-1 hover:bg-black hover:text-white transition-colors"
+                                    aria-label="Clear search"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                        {searchSuggestions.length > 0 && (
+                            <ul className="absolute z-20 left-0 right-0 top-full mt-1 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] max-h-64 overflow-y-auto">
+                                {searchSuggestions.map(loc => (
+                                    <li key={loc.id}>
+                                        <button
+                                            type="button"
+                                            onClick={() => selectSearchResult(loc)}
+                                            className="w-full text-left px-3 py-2 hover:bg-[#39FF14]/40 flex flex-col gap-0.5"
+                                        >
+                                            <span className="font-bold text-black text-sm">{loc.title}</span>
+                                            <span className="text-[10px] uppercase text-black/50">
+                                                {[loc.mainCategory, loc.neighborhood].filter(Boolean).join(" · ") || loc.id}
+                                            </span>
+                                            {loc.address ? (
+                                                <span className="text-[10px] text-black/50 truncate">{loc.address}</span>
+                                            ) : null}
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        {searchActive && (
+                            <p className="mt-1 text-[10px] font-mono uppercase text-black/50">
+                                Searching all Berlin · {filteredLocations.length} match{filteredLocations.length === 1 ? "" : "es"}
+                            </p>
+                        )}
+                    </div>
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6">
                         {/* Bezirk Picker */}
                         <div
