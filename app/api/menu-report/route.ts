@@ -5,18 +5,16 @@ export const runtime = "nodejs";
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB
 const MAX_MESSAGE = 4000;
-const REPORT_TO = process.env.MENU_REPORT_TO || "contact@explores-berlin.com";
 
 function escapeHtml(s: string): string {
     return String(s)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
+        .replace(/>/g, "&gt;");
 }
 
-async function notifyByEmail(opts: {
+async function notifyByTelegram(opts: {
+    reportId: number | null;
     placeTitle: string;
     placeSlug: string;
     message: string;
@@ -25,59 +23,70 @@ async function notifyByEmail(opts: {
     imageMime: string;
     imageBytes: Buffer | null;
 }): Promise<{ ok: boolean; error?: string }> {
-    const apiKey = process.env.BREVO_API_KEY;
-    if (!apiKey) {
-        console.error("BREVO_API_KEY is not defined — menu report email skipped");
-        return { ok: false, error: "BREVO_API_KEY missing" };
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!token || !chatId) {
+        console.error("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID missing — telegram notify skipped");
+        return { ok: false, error: "telegram env missing" };
     }
+    const api = `https://api.telegram.org/bot${token}`;
 
-    const subject = `Menu fix report${opts.placeTitle ? `: ${opts.placeTitle}` : ""}`;
-    const html = `
-        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111">
-          <h2 style="margin:0 0 12px">Menu fix report</h2>
-          <table style="border-collapse:collapse">
-            <tr><td style="padding:4px 8px;font-weight:bold">Place</td><td style="padding:4px 8px">${escapeHtml(opts.placeTitle || "—")}</td></tr>
-            <tr><td style="padding:4px 8px;font-weight:bold">Slug</td><td style="padding:4px 8px">${escapeHtml(opts.placeSlug || "—")}</td></tr>
-            <tr><td style="padding:4px 8px;font-weight:bold">Reporter</td><td style="padding:4px 8px">${escapeHtml(opts.email || "anonymous")}</td></tr>
-            <tr><td style="padding:4px 8px;font-weight:bold">Photo</td><td style="padding:4px 8px">${opts.imageBytes ? escapeHtml(opts.imageName || "menu.jpg") + " (attached)" : "none"}</td></tr>
-          </table>
-          <p style="margin:16px 0 4px;font-weight:bold">Message</p>
-          <p style="margin:0;white-space:pre-wrap">${escapeHtml(opts.message || "(no message — photo only)")}</p>
-        </div>
-    `;
+    const header =
+        `🍴 <b>Menu fix report` +
+        (opts.reportId ? ` #${opts.reportId}` : ``) +
+        `</b>\n` +
+        `<b>Place:</b> ${escapeHtml(opts.placeTitle || "—")}\n` +
+        `<b>Slug:</b> ${escapeHtml(opts.placeSlug || "—")}\n` +
+        `<b>Reporter:</b> ${escapeHtml(opts.email || "anonymous")}\n`;
+    const body = opts.message
+        ? `\n${escapeHtml(opts.message.slice(0, 3000))}`
+        : `\n<i>(no message — photo only)</i>`;
+    const text = (header + body).slice(0, 4000);
 
-    const payload: any = {
-        to: [{ email: REPORT_TO }],
-        subject,
-        htmlContent: html,
-    };
-    if (opts.email) {
-        payload.replyTo = { email: opts.email };
-    }
+    // With photo: sendPhoto (caption max ~1024 chars) + follow-up message if long
     if (opts.imageBytes && opts.imageBytes.length) {
-        // Brevo attachment content must be base64
-        payload.attachment = [
-            {
-                name: (opts.imageName || "menu.jpg").replace(/[^\w.\-]+/g, "_").slice(0, 80),
-                content: opts.imageBytes.toString("base64"),
-            },
-        ];
+        const caption = (header + body).slice(0, 1000);
+        const fd = new FormData();
+        fd.append("chat_id", chatId);
+        fd.append(
+            "photo",
+            new Blob([new Uint8Array(opts.imageBytes)], {
+                type: opts.imageMime || "image/jpeg",
+            }),
+            opts.imageName || "menu.jpg"
+        );
+        fd.append("caption", caption);
+        fd.append("parse_mode", "HTML");
+        const res = await fetch(`${api}/sendPhoto`, { method: "POST", body: fd });
+        if (!res.ok) {
+            const err = await res.text().catch(() => "");
+            console.error("Telegram sendPhoto error:", err.slice(0, 300));
+            return { ok: false, error: `telegram ${res.status}` };
+        }
+        // Full text didn't fit in caption → send remainder as message
+        if (text.length > caption.length) {
+            await fetch(`${api}/sendMessage`, {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: text.slice(caption.length) || text,
+                    parse_mode: "HTML",
+                }),
+            });
+        }
+        return { ok: true };
     }
 
-    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    const res = await fetch(`${api}/sendMessage`, {
         method: "POST",
-        headers: {
-            accept: "application/json",
-            "api-key": apiKey,
-            "content-type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
     });
-
     if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error("Brevo menu report email error:", err);
-        return { ok: false, error: err.message || `Brevo ${res.status}` };
+        const err = await res.text().catch(() => "");
+        console.error("Telegram sendMessage error:", err.slice(0, 300));
+        return { ok: false, error: `telegram ${res.status}` };
     }
     return { ok: true };
 }
@@ -177,10 +186,11 @@ export async function POST(req: Request) {
         );
         const reportId = insertRes.rows[0]?.id;
 
-        // Email notify — non-blocking for UX: report is already stored
-        let emailSent = false;
+        // Telegram notify — non-blocking for UX: report is already stored
+        let telegramSent = false;
         try {
-            const mail = await notifyByEmail({
+            const tg = await notifyByTelegram({
+                reportId: reportId ?? null,
                 placeTitle,
                 placeSlug,
                 message: hasMessage ? message.trim() : "",
@@ -189,12 +199,12 @@ export async function POST(req: Request) {
                 imageMime,
                 imageBytes,
             });
-            emailSent = mail.ok;
-            if (!mail.ok) {
-                console.error("Menu report stored but email failed:", mail.error, "id=", reportId);
+            telegramSent = tg.ok;
+            if (!tg.ok) {
+                console.error("Menu report stored but telegram failed:", tg.error, "id=", reportId);
             }
         } catch (e: any) {
-            console.error("Menu report email exception:", e?.message, "id=", reportId);
+            console.error("Menu report telegram exception:", e?.message, "id=", reportId);
         }
 
         return NextResponse.json(
@@ -202,7 +212,7 @@ export async function POST(req: Request) {
                 success: true,
                 message: "Menu fix report received",
                 id: reportId,
-                emailSent,
+                telegramSent,
             },
             { status: 201 }
         );
