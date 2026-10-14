@@ -109,7 +109,8 @@ async function main() {
         }
         await pool.query("BEGIN");
         try {
-            await pool.query("UPDATE places SET menu_md = $1 WHERE slug = $2", [r.suggested_menu_md, target.slug]);
+            const upd = await pool.query("UPDATE places SET menu_md = $1, updated_at = NOW() WHERE slug = $2", [r.suggested_menu_md, target.slug]);
+            if (!upd.rowCount) throw new Error(`places update matched 0 rows (slug=${target.slug})`);
             await pool.query("UPDATE menu_reports SET status='applied', updated_at=NOW() WHERE id=$1", [id]);
             await pool.query("COMMIT");
         } catch (e) {
