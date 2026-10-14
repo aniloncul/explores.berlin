@@ -131,7 +131,7 @@ async function toJpeg(buf) {
         const sharp = (await import("sharp")).default;
         return await sharp(buf).jpeg({ quality: 88 }).toBuffer();
     } catch (e) {
-        console.log(`  sharp convert failed (${e.message}), trying sips…`);
+        console.log(`  sharp convert failed (${e.message.split("\n")[0]}), trying sips…`);
     }
     // macOS fallback
     const tmpIn = path.join(os.tmpdir(), `rep_${Date.now()}.heic`);
@@ -143,6 +143,18 @@ async function toJpeg(buf) {
     } finally {
         try { fs.unlinkSync(tmpIn); } catch {}
         try { fs.unlinkSync(tmpOut); } catch {}
+    }
+}
+
+// Normalize orientation via EXIF transpose (phone photos are often stored
+// rotated — VLMs read garbage from sideways pixels). No-op when EXIF=1.
+async function normalizeOrientation(jpegBuf) {
+    try {
+        const sharp = (await import("sharp")).default;
+        return await sharp(jpegBuf).rotate().jpeg({ quality: 88 }).toBuffer();
+    } catch (e) {
+        console.log(`  orientation normalize skipped (${e.message.split("\n")[0]})`);
+        return jpegBuf;
     }
 }
 
@@ -243,6 +255,7 @@ async function main() {
                     console.log("  HEIC detected -> converting to JPEG");
                     imgBuf = await toJpeg(imgBuf);
                 }
+                imgBuf = await normalizeOrientation(imgBuf);
                 const ctx = [
                     r.message ? `Reporter note: ${r.message.trim()}` : null,
                     current ? `Current menu on file (may be outdated, reconcile with photo + note):\n${current}` : null,
