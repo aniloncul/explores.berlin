@@ -639,6 +639,9 @@ export default function Page() {
                                                             <span className="text-[10px] uppercase text-black/50">
                                                                 {[loc.mainCategory, loc.neighborhood].filter(Boolean).join(" · ") || loc.id}
                                                             </span>
+                                                            {loc.address ? (
+                                                                <span className="text-[10px] text-black/50 truncate">{loc.address}</span>
+                                                            ) : null}
                                                         </button>
                                                     </li>
                                                 ))}
