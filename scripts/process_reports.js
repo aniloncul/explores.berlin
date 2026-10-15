@@ -775,7 +775,7 @@ async function main() {
                     `photos: ${raws.length}, pages: ${pages}, rows: ${oldN} → ${newN}` +
                     (r.message ? `\nnote: ${escapeHtml(r.message.trim()).slice(0, 300)}` : "") +
                     (vaultPath ? `\nvault: <code>${escapeHtml(vaultPath)}</code>` : "") +
-                    `\n\n<pre>${escapeHtml(table).slice(0, 2800)}</pre>`,
+                    `\n\n<pre>${escapeHtml(pagesMd).slice(0, 3000)}</pre>`,
                     approvalKeyboard(r.id)
                 );
                 console.log(`  suggested (${oldN} -> ${newN} rows, ${pages} pages), preview sent`);
