@@ -107,9 +107,12 @@ async function main() {
         if (!target) {
             throw new Error(`no places row matches slug=${r.place_slug} title=${r.place_title} — link it manually`);
         }
+        // DB (places.menu_md, display + RAG) gets the ORGANIZED sectioned menu;
+        // flat consumers (lowestPrice, old notes) tolerate it via expanded parse.
+        const organized = r.suggested_sections_md || r.suggested_menu_md;
         await pool.query("BEGIN");
         try {
-            const upd = await pool.query("UPDATE places SET menu_md = $1, updated_at = NOW() WHERE slug = $2", [r.suggested_menu_md, target.slug]);
+            const upd = await pool.query("UPDATE places SET menu_md = $1, updated_at = NOW() WHERE slug = $2", [organized, target.slug]);
             if (!upd.rowCount) throw new Error(`places update matched 0 rows (slug=${target.slug})`);
             await pool.query("UPDATE menu_reports SET status='applied', updated_at=NOW() WHERE id=$1", [id]);
             await pool.query("COMMIT");
@@ -118,8 +121,7 @@ async function main() {
             throw e;
         }
         console.log(`#${id} applied -> places(${target.slug})`);
-        // Vault note gets the ORGANIZED (sectioned) menu; DB keeps flat.
-        const organized = r.suggested_sections_md || r.suggested_menu_md;
+        // Vault note gets the same organized menu (vault stays source-of-truth).
         let vaultNote = null;
         try {
             vaultNote = syncVaultNoteMenu(target.slug, organized);

@@ -14,7 +14,7 @@ import PixelTicker from "@/components/PixelTicker";
 import Navigation from "@/components/Navigation";
 import areas from "../scripts/vault/areas.json";
 
-import { parseMenuMd, formatPrice } from "@/lib/menu";
+import { parseMenuMd, parseMenuSections, formatPrice } from "@/lib/menu";
 
 const DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 const DAY_LABELS: Record<string, string> = {
@@ -559,6 +559,8 @@ export default function Page() {
                             const activeLocation = locations.find(l => l.id === activeId);
                             if (activeLocation && (activeLocation.detail || activeLocation.menuMd || activeLocation.hours || activeLocation.openingHoursRaw)) {
                                 const menuItems = parseMenuMd(activeLocation.menuMd);
+                                const menuSections = parseMenuSections(activeLocation.menuMd);
+                                const sectioned = menuSections.some(s => s.title);
                                 const hoursObj = activeLocation.hours && typeof activeLocation.hours === "object"
                                     ? activeLocation.hours
                                     : null;
@@ -589,6 +591,41 @@ export default function Page() {
                                                         </span>
                                                     )}
                                                 </h3>
+                                                {sectioned ? (
+                                                    <div className="flex flex-col gap-3">
+                                                        {menuSections.map((sec, si) => (
+                                                            <div key={si}>
+                                                                {sec.title && (
+                                                                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-[#b92626] mb-1">
+                                                                        {sec.title}
+                                                                    </h4>
+                                                                )}
+                                                                <table className="w-full text-xs border-collapse">
+                                                                    <thead>
+                                                                        <tr className="border-b border-black/20 text-left text-black">
+                                                                            {sec.columns.map((c, ci) => (
+                                                                                <th key={ci} className={`py-1 pr-2 font-semibold ${ci > 0 ? "text-right pl-2" : ""}`}>
+                                                                                    {c}
+                                                                                </th>
+                                                                            ))}
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {sec.rows.map((row, ri) => (
+                                                                            <tr key={ri} className="border-b border-black/10">
+                                                                                {row.map((cell, ci) => (
+                                                                                    <td key={ci} className={`py-1 pr-2 text-black ${ci > 0 ? "text-right pl-2 whitespace-nowrap" : ""}`}>
+                                                                                        {cell}
+                                                                                    </td>
+                                                                                ))}
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
                                                 <table className="w-full text-xs border-collapse">
                                                     <thead>
                                                         <tr className="border-b border-black/20 text-left text-black">
@@ -610,6 +647,7 @@ export default function Page() {
                                                         ))}
                                                     </tbody>
                                                 </table>
+                                                )}
                                             </div>
                                         )}
 
