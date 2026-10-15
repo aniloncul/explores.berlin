@@ -15,6 +15,12 @@ const BASE_PROMPT = `Transcribe this restaurant menu image into a markdown table
 
 Rules:
 - One row per dish or drink that shows a price, in the original menu order.
+- EVERY size variant gets its own row: if a beer lists 0,3L, 0,4L and 0,5L
+  prices, emit three rows like "Pilsner (0,3L)", "Pilsner (0,4L)",
+  "Pilsner (0,5L)" — never collapse sizes into one row.
+- If a cocktail or dish lists ingredients, append them in parentheses after
+  the name, e.g. "Gin Basil (Tanqueray Dry Gin, Zuckersirup, Zitronensaft)".
+  Keep them short: drop allergen codes and additive numbers.
 - Price format: German, e.g. 8,50 € (comma decimal, space before €).
 - The price is the RIGHTMOST amount on the line (often written "-- 12,50").
   Volumes like 0,33L, 0,5L, 0,75L, 1L are NOT prices — never output a volume
