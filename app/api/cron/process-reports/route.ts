@@ -15,9 +15,10 @@ const BASE_PROMPT = `Transcribe this restaurant menu image into a markdown table
 
 Rules:
 - One row per dish or drink that shows a price, in the original menu order.
-- EVERY size variant gets its own row: if a beer lists 0,3L, 0,4L and 0,5L
-  prices, emit three rows like "Pilsner (0,3L)", "Pilsner (0,4L)",
-  "Pilsner (0,5L)" — never collapse sizes into one row.
+- For drinks with several sizes (beer, wine by the glass) use ONE table with
+  volumes as columns, e.g. "| Item | 0,3L | 0,5L |" followed by
+  "| Pilsner | 4,80 € | 5,50 € |". Only volumes go in the header.
+  If unsure, one row per size like "Pilsner (0,3L)".
 - If a cocktail or dish lists ingredients, append them in parentheses after
   the name, e.g. "Gin Basil (Tanqueray Dry Gin, Zuckersirup, Zitronensaft)".
   Keep them short: drop allergen codes and additive numbers.
@@ -73,20 +74,34 @@ function cleanTable(raw: string): string | null {
     };
     let rows: string[] = [];
     const seen = new Set<string>();
+    const isVol = (s: string) => /^(\d+[,.]?\d*)\s*(l|cl|ml)$/i.test(s.trim());
+    let vols: string[] | null = null;
     for (const ln of lines) {
         if (ln.includes("**")) continue;
         const cells = ln.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
         if (cells.length < 2) continue;
         const [item, price] = cells;
         if (isSepRow(item) || isSepRow(price)) continue;
-        if (item.toLowerCase() === "item" && price.toLowerCase() === "price") {
-            rows = ["| Item | Price |", "|------|-------|"];
+        if (item.toLowerCase() === "item") {
+            vols = cells.length > 2 && cells.slice(1).every(isVol) ? cells.slice(1) : null;
+            if (!vols) rows = ["| Item | Price |", "|------|-------|"];
+            continue;
+        }
+        const cleanItem = item.replace(/\s+/g, " ").trim();
+        if (!cleanItem) continue;
+        if (vols) {
+            for (let i = 0; i < vols.length; i++) {
+                const n = norm(String(cells[i + 1] || ""));
+                if (n === null || n === "?") continue;
+                const key = `| ${cleanItem} (${vols[i]}) | ${n} |`.toLowerCase();
+                if (seen.has(key)) continue;
+                seen.add(key);
+                rows.push(`| ${cleanItem} (${vols[i]}) | ${n} |`);
+            }
             continue;
         }
         const n = norm(price);
         if (n === null) continue;
-        const cleanItem = item.replace(/\s+/g, " ").trim();
-        if (!cleanItem) continue;
         const key = `| ${cleanItem} | ${n} |`.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);

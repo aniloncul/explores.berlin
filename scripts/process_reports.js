@@ -55,9 +55,11 @@ const BASE_PROMPT = `Transcribe this restaurant menu image into a markdown table
 
 Rules:
 - One row per dish or drink that shows a price, in the original menu order.
-- EVERY size variant gets its own row: if a beer lists 0,3L, 0,4L and 0,5L
-  prices, emit three rows like "Pilsner (0,3L)", "Pilsner (0,4L)",
-  "Pilsner (0,5L)" — never collapse sizes into one row.
+- For drinks with several sizes (beer, wine by the glass) use ONE table with
+  volumes as columns, e.g. "| Item | 0,3L | 0,5L |" followed by
+  "| Pilsner | 4,80 € | 5,50 € |". Only volumes go in the header, never
+  other text. If unsure, fall back to one row per size like
+  "Pilsner (0,3L)".
 - If a cocktail or dish lists ingredients, append them in parentheses after
   the name, e.g. "Gin Basil (Tanqueray Dry Gin, Zuckersirup, Zitronensaft)".
   Keep them short: drop allergen codes and additive numbers.
@@ -91,66 +93,101 @@ function normPrice(raw) {
     return null;
 }
 
+function isVolumeCell(s) {
+    return /^(\d+[,.]?\d*)\s*(l|cl|ml)$/i.test(String(s).trim());
+}
+
+// Block-based parse: "### " headings preserved; each "|" table validated but
+// kept in its ORIGINAL shape (standard or size-column) for the review md.
+// Returns md or null.
 function cleanTable(raw) {
-    // Keeps "### ..." section/page headings, validates "|" rows.
-    // Returns markdown (headings + one header + rows) or null.
     const text = String(raw || "").replace(/```/g, "");
-    const lines = text.split("\n").map((l) => l.trimEnd());
-    let out = [];
-    let rows = [];
-    let headerSeen = false;
-    const flushRows = () => {
-        if (!rows.length) return;
-        if (!headerSeen) {
-            out.push("| Item | Price |", "|------|-------|");
-            headerSeen = true;
+    const out = [];
+    let block = null; // { headLine, rows: string[], vols: string[]|null }
+    let realRows = 0;
+    const rowValid = (cells, vols) => {
+        if (vols) {
+            return cells
+                .slice(1, vols.length + 1)
+                .some((c) => normPrice(String(c || "").replace(/\s+/g, " ")) !== null);
         }
-        // dedup identical rows, keep first occurrence
-        const seen = new Set(out.map((l) => l.toLowerCase()));
-        for (const r of rows) {
-            if (!seen.has(r.toLowerCase())) {
-                seen.add(r.toLowerCase());
-                out.push(r);
-            }
-        }
-        rows = [];
+        return normPrice(String(cells[1] || "").replace(/\s+/g, " ")) !== null;
     };
-    for (const ln of lines) {
-        const t = ln.trim();
+    const flush = () => {
+        if (!block) return;
+        if (block.rows.length) {
+            out.push(block.headLine, "|------|-------|", ...block.rows);
+            realRows += block.rows.length;
+        }
+        block = null;
+    };
+    for (const rawLn of text.split("\n")) {
+        const t = rawLn.trimEnd().trim();
         if (t.startsWith("### ")) {
-            flushRows();
+            flush();
             out.push(t.replace(/\s+/g, " ").trim());
             continue;
         }
-        if (!t.startsWith("|") || t.includes("**")) continue;
+        if (!t.startsWith("|") || t.includes("**")) {
+            if (block && !t.startsWith("|")) flush();
+            continue;
+        }
         const cells = t.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
         if (cells.length < 2) continue;
-        const [item, price] = cells;
-        if (/^[-:\s]+$/.test(item) || /^[-:\s]+$/.test(price)) continue;
-        if (item.toLowerCase() === "item" && price.toLowerCase() === "price") continue;
-        const norm = normPrice(price.replace(/\s+/g, " "));
-        if (norm === null) continue;
-        const cleanItem = item.replace(/\s+/g, " ").trim();
-        if (cleanItem) rows.push(`| ${cleanItem} | ${norm} |`);
+        if (/^[-:\s]+$/.test(cells[0])) continue; // separator row
+        if (cells[0].toLowerCase() === "item") {
+            if (block) flush();
+            const vols = cells.length > 2 && cells.slice(1).every(isVolumeCell) ? cells.slice(1) : null;
+            block = { headLine: t, rows: [], vols };
+            continue;
+        }
+        if (!block) continue; // row without header: skip
+        const item = String(cells[0] || "").replace(/\s+/g, " ").trim();
+        if (!item || !rowValid(cells, block.vols)) continue;
+        block.rows.push(t);
     }
-    flushRows();
-    const realRows = out.filter((l) => l.startsWith("|") && !/^\|\s*item\s*\|/i.test(l) && !l.includes("---"));
-    if (!realRows.length) return null;
+    flush();
+    if (!realRows) return null;
     return out.join("\n");
 }
 
-// Flat single table for places.menu_md: drop headings, dedup.
+// Flat single table for places.menu_md: size-column tables expand to one row
+// per size ("Name (0,3L)"), headings dropped, deduped.
 function flattenTable(md) {
     if (!md) return null;
     const rows = ["| Item | Price |", "|------|-------|"];
     const seen = new Set();
+    const push = (line) => {
+        const key = line.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        rows.push(line);
+    };
+    let vols = null;
     for (const ln of md.split("\n")) {
         const t = ln.trim();
-        if (!t.startsWith("|") || /^\|\s*item\s*\|/i.test(t) || t.includes("---")) continue;
-        const key = t.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        rows.push(t);
+        if (t.startsWith("### ")) { vols = null; continue; }
+        if (!t.startsWith("|")) { vols = null; continue; }
+        const cells = t.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+        if (cells.length < 2) continue;
+        if (/^[-:\s]+$/.test(cells[0])) continue;
+        if (cells[0].toLowerCase() === "item") {
+            vols = cells.length > 2 && cells.slice(1).every(isVolumeCell) ? cells.slice(1) : null;
+            continue;
+        }
+        const item = String(cells[0]).replace(/\s+/g, " ").trim();
+        if (!item) continue;
+        if (vols) {
+            for (let i = 0; i < vols.length; i++) {
+                const p = normPrice(String(cells[i + 1] || "").replace(/\s+/g, " "));
+                if (p === null || p === "?") continue;
+                push(`| ${item} (${vols[i]}) | ${p} |`);
+            }
+        } else {
+            const p = normPrice(String(cells[1] || "").replace(/\s+/g, " "));
+            if (p === null) continue;
+            push(`| ${item} | ${p} |`);
+        }
     }
     return rows.length > 2 ? rows.join("\n") : null;
 }
