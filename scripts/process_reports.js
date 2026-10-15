@@ -55,11 +55,6 @@ const BASE_PROMPT = `Transcribe this restaurant menu image into a markdown table
 
 Rules:
 - One row per dish or drink that shows a price, in the original menu order.
-- For drinks with several sizes (beer, wine by the glass) use ONE table with
-  volumes as columns, e.g. "| Item | 0,3L | 0,5L |" followed by
-  "| Pilsner | 4,80 € | 5,50 € |". Only volumes go in the header, never
-  other text. If unsure, fall back to one row per size like
-  "Pilsner (0,3L)".
 - If a cocktail or dish lists ingredients, append them in parentheses after
   the name, e.g. "Gin Basil (Tanqueray Dry Gin, Zuckersirup, Zitronensaft)".
   Keep them short: drop allergen codes and additive numbers.
@@ -73,6 +68,13 @@ Rules:
 - If a price is unreadable write ? instead of guessing.
 - NEVER output section/category headers (COCKTAILS, BEER, WINE, SOFT DRINKS…)
   as rows — headers are not dishes, skip them entirely.
+- DO group dishes under their printed section: start each menu section with
+  a "### SECTION NAME" heading line (e.g. "### BIER", "### COCKTAILS"),
+  then that section's table. One table per section, never mix sections.
+- For drinks with several sizes (beer, wine by the glass) the section table
+  MUST use volumes as columns, e.g. "| Item | 0,3L | 0,5L |" followed by
+  "| Pilsner | 4,80 € | 5,50 € |". Only volumes go in the header, never
+  other text. Single-size sections use "| Item | Price |".
 - A ? price is only allowed for a real dish or drink whose name you can read
   clearly. If a line has no readable item name, skip it, do not emit it.
 - Never use bold (**) or any other markdown formatting inside the table.
@@ -655,6 +657,7 @@ async function main() {
     try {
         await q(`
             ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS suggested_menu_md TEXT;
+            ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS suggested_sections_md TEXT;
             ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
             ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS processing_error TEXT;
         `);
@@ -761,9 +764,9 @@ async function main() {
                     console.error("  vault write failed:", e.message);
                 }
                 await q(
-                    `UPDATE menu_reports SET suggested_menu_md=$1, status='suggested',
-                     processed_at=NOW(), updated_at=NOW(), processing_error=NULL WHERE id=$2`,
-                    [table, r.id]
+                    `UPDATE menu_reports SET suggested_menu_md=$1, suggested_sections_md=$2, status='suggested',
+                     processed_at=NOW(), updated_at=NOW(), processing_error=NULL WHERE id=$3`,
+                    [table, pagesMd, r.id]
                 );
                 const oldN = countRows(current), newN = countRows(table);
                 const pages = (pagesMd.match(/^### /gm) || []).length || 1;

@@ -147,6 +147,7 @@ function ensureSchema() {
         );
         CREATE INDEX IF NOT EXISTS idx_menu_reports_created ON menu_reports(created_at DESC);
         ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS suggested_menu_md TEXT;
+        ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS suggested_sections_md TEXT;
         ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
         ALTER TABLE menu_reports ADD COLUMN IF NOT EXISTS processing_error TEXT;
         CREATE TABLE IF NOT EXISTS menu_report_images (

@@ -118,9 +118,11 @@ async function main() {
             throw e;
         }
         console.log(`#${id} applied -> places(${target.slug})`);
+        // Vault note gets the ORGANIZED (sectioned) menu; DB keeps flat.
+        const organized = r.suggested_sections_md || r.suggested_menu_md;
         let vaultNote = null;
         try {
-            vaultNote = syncVaultNoteMenu(target.slug, r.suggested_menu_md);
+            vaultNote = syncVaultNoteMenu(target.slug, organized);
             if (vaultNote) console.log(`vault note synced: ${vaultNote}`);
             else console.log("vault note not found — DB only");
         } catch (e) {

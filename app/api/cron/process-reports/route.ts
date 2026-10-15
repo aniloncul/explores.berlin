@@ -31,6 +31,9 @@ Rules:
   addresses and opening hours.
 - NEVER output section/category headers (COCKTAILS, BEER, WINE, SOFT DRINKS…)
   as rows — headers are not dishes, skip them entirely.
+- DO group dishes under their printed section: start each menu section with
+  a "### SECTION NAME" heading line (e.g. "### BIER", "### COCKTAILS"),
+  then that section's table. One table per section, never mix sections.
 - Never use bold (**) or any other markdown formatting inside the table.
 - Output the table directly with no analysis.
 - Output only the markdown table. No commentary, no code fences.`;
